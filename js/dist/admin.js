@@ -22,13 +22,13 @@ var MenuControlPage=function(Base){
     this.saveSuccess=false;
     this.draggingKey=null;
     this.dragOverKey=null;
+    // PHP-computed labels map: { key: "Display Label" }
+    this._labels=app().forum.attribute("menuControlNavLabels")||{};
     this.orderedKeys=this._buildInitialOrder();
   };
 
-  // PHP-computed authoritative key list from extensions_enabled DB query.
-  // Available as app.forum.attribute('menuControlNavKeys') — set by our
-  // ApiSerializer extender which reads the DB on every request.
   p._buildInitialOrder=function(){
+    // PHP-authoritative key list from extensions_enabled DB query
     var phpKeys=(app().forum.attribute("menuControlNavKeys")||[])
       .filter(function(k){return!isTagEntry(k);});
 
@@ -37,10 +37,14 @@ var MenuControlPage=function(Base){
     try{savedOrder=rawOrder?JSON.parse(rawOrder):[]}catch(e){}
     savedOrder=savedOrder.filter(function(k){return!isTagEntry(k);});
 
-    // Preserve admin's last saved arrangement, then append any new PHP keys.
+    // Preserve saved arrangement, then append any new phpKeys not yet in it
     var merged=savedOrder.filter(function(k){return phpKeys.indexOf(k)!==-1;});
     phpKeys.forEach(function(k){if(merged.indexOf(k)===-1)merged.push(k);});
     return merged;
+  };
+
+  p._label=function(key){
+    return this._labels[key]||key;
   };
 
   p.content=function(){
@@ -83,13 +87,13 @@ var MenuControlPage=function(Base){
       ondrop:function(e){e.preventDefault();var fk=self.draggingKey;if(fk&&fk!==key)self._moveItem(fk,key);self.draggingKey=null;self.dragOverKey=null;},
       ondragend:function(){self.draggingKey=null;self.dragOverKey=null;m.redraw();}},
       m("span",{className:"MenuControlPage-handle","aria-hidden":"true"},"\u2837"),
-      m("span",{className:"MenuControlPage-label"},key),
+      m("span",{className:"MenuControlPage-label"},self._label(key)),
       m("span",{className:"MenuControlPage-arrows"},
         m(Button(),{className:"Button Button--icon Button--flat",icon:"fas fa-arrow-up",
-          "aria-label":app().translator.trans("resofire-menu-control.admin.nav_order.move_up"),
+          title:app().translator.trans("resofire-menu-control.admin.nav_order.move_up"),
           disabled:index===0,onclick:function(){self._moveUp(index);}}),
         m(Button(),{className:"Button Button--icon Button--flat",icon:"fas fa-arrow-down",
-          "aria-label":app().translator.trans("resofire-menu-control.admin.nav_order.move_down"),
+          title:app().translator.trans("resofire-menu-control.admin.nav_order.move_down"),
           disabled:index===keys.length-1,onclick:function(){self._moveDown(index);}})
       )
     );
@@ -114,11 +118,16 @@ var MenuControlPage=function(Base){
     var tmp=arr[index];arr[index]=arr[index+1];arr[index+1]=tmp;
     this.orderedKeys=arr;m.redraw();
   };
+
   p._save=function(){
     var self=this;
     self.saving=true;self.saveSuccess=false;m.redraw();
-    saveSettings()({"resofire-menu-control.order":JSON.stringify(self.orderedKeys)})
-      .then(function(){self.saving=false;self.saveSuccess=true;m.redraw();setTimeout(function(){self.saveSuccess=false;m.redraw();},3000);})
+    var serialized=JSON.stringify(self.orderedKeys);
+    saveSettings()({"resofire-menu-control.order":serialized})
+      .then(function(){
+        self.saving=false;self.saveSuccess=true;m.redraw();
+        setTimeout(function(){self.saveSuccess=false;m.redraw();},3000);
+      })
       .catch(function(){self.saving=false;m.redraw();});
   };
 
