@@ -9,6 +9,11 @@ const _Button=flarum.core.compat["common/components/Button"];var Button=t.n(_But
 const _ExtensionPage=flarum.core.compat["components/ExtensionPage"];var ExtensionPage=t.n(_ExtensionPage);
 const _saveSettings=flarum.core.compat["utils/saveSettings"];var saveSettings=t.n(_saveSettings);
 
+// Returns true for keys that are tag entries, not reorderable menu items
+function isTagEntry(key){
+  return key==="separator"||key==="moreTags"||/^tag\d+$/.test(key);
+}
+
 var MenuControlPage=function(Base){
   function C(){return Base.apply(this,arguments)||this}
   _(C,Base);
@@ -29,8 +34,11 @@ var MenuControlPage=function(Base){
     var savedOrder=[];var knownKeys=[];
     try{savedOrder=rawOrder?JSON.parse(rawOrder):[]}catch(e){savedOrder=[]}
     try{knownKeys=rawKnown?JSON.parse(rawKnown):[]}catch(e){knownKeys=[]}
-    var merged=savedOrder.slice();
-    knownKeys.forEach(function(k){if(merged.indexOf(k)===-1)merged.push(k)});
+    // Filter tag entries from both lists when building the display order
+    var merged=savedOrder.filter(function(k){return!isTagEntry(k)});
+    knownKeys.forEach(function(k){
+      if(!isTagEntry(k)&&merged.indexOf(k)===-1)merged.push(k);
+    });
     return merged;
   };
 
@@ -50,7 +58,7 @@ var MenuControlPage=function(Base){
         m("div",{className:"MenuControlPage-actions"},
           m(Button(),{
             className:"Button Button--primary",
-            onclick:function(){self._save()},
+            onclick:function(){self._save();},
             loading:self.saving,
             disabled:self.saving||keys.length===0
           },app().translator.trans("resofire-menu-control.admin.nav_order.save_button")),
