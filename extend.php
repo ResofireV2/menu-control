@@ -20,5 +20,9 @@ return [
         // All nav keys ever discovered (JSON array of keys), used by admin UI
         ->serializeToForum('menuControlKnownKeys', 'resofire-menu-control.known-keys', function ($value) {
             return $value ?: null;
+        })
+        // Display labels for each key (JSON object), used by admin UI
+        ->serializeToForum('menuControlLabels', 'resofire-menu-control.labels', function ($value) {
+            return $value ?: null;
         }),
 ];

@@ -1,6 +1,5 @@
 (()=>{var t={n:o=>{var s=o&&o.__esModule?()=>o.default:()=>o;return t.d(s,{a:s}),s},d:(o,s)=>{for(var n in s)t.o(s,n)&&!t.o(o,n)&&Object.defineProperty(o,n,{enumerable:!0,get:s[n]})},o:(t,o)=>Object.prototype.hasOwnProperty.call(t,o),r:t=>{"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(t,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(t,"__esModule",{value:!0})}},o={};(()=>{"use strict";t.r(o);
 
-// Inheritance helpers — exact pattern from flarum/likes compiled bundle.
 function g(t,o){return g=Object.setPrototypeOf?Object.setPrototypeOf.bind():function(t,o){return t.__proto__=o,t},g(t,o)}
 function _(t,o){t.prototype=Object.create(o.prototype),t.prototype.constructor=t,g(t,o)}
 
@@ -9,9 +8,9 @@ const _Button=flarum.core.compat["common/components/Button"];var Button=t.n(_But
 const _ExtensionPage=flarum.core.compat["components/ExtensionPage"];var ExtensionPage=t.n(_ExtensionPage);
 const _saveSettings=flarum.core.compat["utils/saveSettings"];var saveSettings=t.n(_saveSettings);
 
-// Returns true for keys that are tag entries, not reorderable menu items
+var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){
-  return key==="separator"||key==="moreTags"||/^tag\d+$/.test(key);
+  return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);
 }
 
 var MenuControlPage=function(Base){
@@ -25,6 +24,9 @@ var MenuControlPage=function(Base){
     this.saveSuccess=false;
     this.draggingKey=null;
     this.dragOverKey=null;
+    var rawLabels=app().data.settings["resofire-menu-control.labels"]||null;
+    this._labels={};
+    try{if(rawLabels)this._labels=JSON.parse(rawLabels);}catch(e){}
     this.orderedKeys=this._buildInitialOrder();
   };
 
@@ -32,14 +34,17 @@ var MenuControlPage=function(Base){
     var rawOrder=app().data.settings["resofire-menu-control.order"]||null;
     var rawKnown=app().data.settings["resofire-menu-control.known-keys"]||null;
     var savedOrder=[];var knownKeys=[];
-    try{savedOrder=rawOrder?JSON.parse(rawOrder):[]}catch(e){savedOrder=[]}
-    try{knownKeys=rawKnown?JSON.parse(rawKnown):[]}catch(e){knownKeys=[]}
-    // Filter tag entries from both lists when building the display order
-    var merged=savedOrder.filter(function(k){return!isTagEntry(k)});
+    try{savedOrder=rawOrder?JSON.parse(rawOrder):[]}catch(e){}
+    try{knownKeys=rawKnown?JSON.parse(rawKnown):[]}catch(e){}
+    var merged=savedOrder.filter(function(k){return!isTagEntry(k);});
     knownKeys.forEach(function(k){
       if(!isTagEntry(k)&&merged.indexOf(k)===-1)merged.push(k);
     });
     return merged;
+  };
+
+  p._label=function(key){
+    return this._labels[key]||key;
   };
 
   p.content=function(){
@@ -54,7 +59,7 @@ var MenuControlPage=function(Base){
           ?m("p",{className:"MenuControlPage-empty helpText"},
               app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
           :m("ul",{className:"MenuControlPage-list"},
-              keys.map(function(key,index){return self._renderItem(key,index,keys)})),
+              keys.map(function(key,index){return self._renderItem(key,index,keys);})),
         m("div",{className:"MenuControlPage-actions"},
           m(Button(),{
             className:"Button Button--primary",
@@ -77,46 +82,25 @@ var MenuControlPage=function(Base){
     var isDragOver=this.dragOverKey===key;
     var cls="MenuControlPage-item"+(isDragging?" is-dragging":"")+(isDragOver?" is-dragover":"");
     return m("li",{
-      key:key,
-      className:cls,
-      draggable:"true",
-      ondragstart:function(e){
-        self.draggingKey=key;
-        e.dataTransfer.effectAllowed="move";
-        e.dataTransfer.setData("text/plain",key);
-      },
-      ondragover:function(e){
-        e.preventDefault();
-        e.dataTransfer.dropEffect="move";
-        if(self.dragOverKey!==key){self.dragOverKey=key;m.redraw();}
-      },
-      ondragleave:function(e){
-        if(!e.currentTarget.contains(e.relatedTarget)){self.dragOverKey=null;m.redraw();}
-      },
-      ondrop:function(e){
-        e.preventDefault();
-        var fromKey=self.draggingKey;
-        if(fromKey&&fromKey!==key)self._moveItem(fromKey,key);
-        self.draggingKey=null;self.dragOverKey=null;
-      },
+      key:key,className:cls,draggable:"true",
+      ondragstart:function(e){self.draggingKey=key;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",key);},
+      ondragover:function(e){e.preventDefault();e.dataTransfer.dropEffect="move";if(self.dragOverKey!==key){self.dragOverKey=key;m.redraw();}},
+      ondragleave:function(e){if(!e.currentTarget.contains(e.relatedTarget)){self.dragOverKey=null;m.redraw();}},
+      ondrop:function(e){e.preventDefault();var fk=self.draggingKey;if(fk&&fk!==key)self._moveItem(fk,key);self.draggingKey=null;self.dragOverKey=null;},
       ondragend:function(){self.draggingKey=null;self.dragOverKey=null;m.redraw();}
     },
       m("span",{className:"MenuControlPage-handle","aria-hidden":"true"},"\u2837"),
-      m("span",{className:"MenuControlPage-key"},key),
+      m("span",{className:"MenuControlPage-label"},self._label(key)),
       m("span",{className:"MenuControlPage-arrows"},
         m(Button(),{
-          className:"Button Button--icon Button--flat",
-          icon:"fas fa-arrow-up",
+          className:"Button Button--icon Button--flat",icon:"fas fa-arrow-up",
           "aria-label":app().translator.trans("resofire-menu-control.admin.nav_order.move_up"),
-          disabled:index===0,
-          onclick:function(){self._moveUp(index);}
+          disabled:index===0,onclick:function(){self._moveUp(index);}
         }),
         m(Button(),{
-          className:"Button Button--icon Button--flat",
-          icon:"fas fa-arrow-down",
+          className:"Button Button--icon Button--flat",icon:"fas fa-arrow-down",
           "aria-label":app().translator.trans("resofire-menu-control.admin.nav_order.move_down"),
-          disabled:index===keys.length-1,
-          onclick:function(){self._moveDown(index);}
+          disabled:index===keys.length-1,onclick:function(){self._moveDown(index);}
         })
       )
     );
@@ -129,14 +113,12 @@ var MenuControlPage=function(Base){
     arr.splice(fi,1);arr.splice(ti,0,fromKey);
     this.orderedKeys=arr;m.redraw();
   };
-
   p._moveUp=function(index){
     if(index===0)return;
     var arr=this.orderedKeys.slice();
     var tmp=arr[index-1];arr[index-1]=arr[index];arr[index]=tmp;
     this.orderedKeys=arr;m.redraw();
   };
-
   p._moveDown=function(index){
     if(index===this.orderedKeys.length-1)return;
     var arr=this.orderedKeys.slice();
@@ -154,9 +136,7 @@ var MenuControlPage=function(Base){
     }).then(function(){
       self.saving=false;self.saveSuccess=true;m.redraw();
       setTimeout(function(){self.saveSuccess=false;m.redraw();},3000);
-    }).catch(function(){
-      self.saving=false;m.redraw();
-    });
+    }).catch(function(){self.saving=false;m.redraw();});
   };
 
   return C;

@@ -3,8 +3,8 @@
 const _app=flarum.core.compat["forum/app"];var app=t.n(_app);
 const _extend=flarum.core.compat["common/extend"];
 const _IndexPage=flarum.core.compat["forum/components/IndexPage"];var IndexPage=t.n(_IndexPage);
+const _extractText=flarum.core.compat["utils/extractText"];var extractText=t.n(_extractText);
 
-// Compiled once at module load
 var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){
   return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);
@@ -13,7 +13,7 @@ function isTagEntry(key){
 app().initializers.add("resofire-menu-control",function(){
 
   // ── oninit: once per IndexPage mount ─────────────────────────────────────
-  // Parse and cache the order so navItems never has to JSON.parse on each redraw.
+  // Cache the parsed order so navItems never JSON.parses on each redraw.
   _extend.extend(IndexPage().prototype,"oninit",function(){
     var rawOrder=app().forum.attribute("menuControlOrder");
     this._menuOrder=null;
@@ -25,18 +25,30 @@ app().initializers.add("resofire-menu-control",function(){
         }
       }catch(e){}
     }
-    // Flag for one-time key discovery on first navItems call this mount
-    if(app().session.user&&app().session.user.isAdmin()){
-      this._menuControlShouldSync=true;
-    }
+    this._menuControlShouldSync=!!(app().session.user&&app().session.user.isAdmin());
   });
 
-  // ── navItems: every redraw — minimal work, reads from instance cache ──────
-  _extend.extend(IndexPage().prototype,"navItems",function(items){
-    // Discovery: runs once per mount (flag cleared after first navItems call)
+  // ── navItems override: sees the COMPLETE item list from all extensions ────
+  // override() means original() runs the full extend chain before we inspect items.
+  // Using extend() here would fire our callback before outer extensions add theirs.
+  _extend.override(IndexPage().prototype,"navItems",function(original){
+    var items=original(); // Full chain: core + ALL extension extends
+
+    // Discovery: once per mount, admin only
     if(this._menuControlShouldSync){
       this._menuControlShouldSync=false;
+
       var discoveredKeys=Object.keys(items.toObject()).filter(function(k){return!isTagEntry(k);});
+
+      // Extract human-readable label from each item's vnode
+      var labels={};
+      discoveredKeys.forEach(function(k){
+        try{
+          var text=extractText()(items.get(k));
+          if(text&&text.trim())labels[k]=text.trim();
+        }catch(e){}
+      });
+
       var rawKnown=app().forum.attribute("menuControlKnownKeys");
       var knownKeys=[];
       try{knownKeys=rawKnown?JSON.parse(rawKnown):[]}catch(e){knownKeys=[];}
@@ -45,22 +57,24 @@ app().initializers.add("resofire-menu-control",function(){
       discoveredKeys.forEach(function(k){
         if(merged.indexOf(k)===-1){merged.push(k);changed=true;}
       });
-      if(changed){
-        app().request({
-          method:"POST",
-          url:app().forum.attribute("apiUrl")+"/settings",
-          body:{"resofire-menu-control.known-keys":JSON.stringify(merged)}
-        }).catch(function(){});
-      }
+
+      var body={"resofire-menu-control.labels":JSON.stringify(labels)};
+      if(changed){body["resofire-menu-control.known-keys"]=JSON.stringify(merged);}
+      app().request({
+        method:"POST",
+        url:app().forum.attribute("apiUrl")+"/settings",
+        body:body
+      }).catch(function(){});
     }
 
-    // Apply order from instance cache — no parsing, no filtering on each redraw
+    // Apply saved order from instance cache — no JSON.parse per redraw
     var menuOrder=this._menuOrder;
-    if(!menuOrder)return;
+    if(!menuOrder)return items;
     var base=menuOrder.length+200;
     menuOrder.forEach(function(key,index){
       if(items.has(key)){items.setPriority(key,base-index);}
     });
+    return items;
   });
 
 });
