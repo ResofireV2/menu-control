@@ -1,6 +1,8 @@
 <?php
 
+use Flarum\Api\Serializer\ForumSerializer;
 use Flarum\Extend;
+use Resofire\MenuControl\NavItemsSerializer;
 
 return [
     (new Extend\Frontend('admin'))
@@ -12,17 +14,15 @@ return [
 
     new Extend\Locales(__DIR__ . '/resources/locale'),
 
+    // Serialize the saved order to the forum payload for the forum JS to use.
     (new Extend\Settings())
-        // The admin-saved item order (JSON array of keys)
         ->serializeToForum('menuControlOrder', 'resofire-menu-control.order', function ($value) {
             return $value ?: null;
-        })
-        // All nav keys ever discovered (JSON array of keys), used by admin UI
-        ->serializeToForum('menuControlKnownKeys', 'resofire-menu-control.known-keys', function ($value) {
-            return $value ?: null;
-        })
-        // Display labels for each key (JSON object), used by admin UI
-        ->serializeToForum('menuControlLabels', 'resofire-menu-control.labels', function ($value) {
-            return $value ?: null;
         }),
+
+    // Serialize the PHP-computed nav key list to the forum/admin API payload.
+    // NavItemsSerializer reads extensions_enabled from the DB and maps each enabled
+    // extension ID to its known navItems key. This is authoritative — no JS timing issues.
+    (new Extend\ApiSerializer(ForumSerializer::class))
+        ->attributes(NavItemsSerializer::class),
 ];

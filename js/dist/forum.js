@@ -3,17 +3,13 @@
 const _app=flarum.core.compat["forum/app"];var app=t.n(_app);
 const _extend=flarum.core.compat["common/extend"];
 const _IndexPage=flarum.core.compat["forum/components/IndexPage"];var IndexPage=t.n(_IndexPage);
-const _extractText=flarum.core.compat["utils/extractText"];var extractText=t.n(_extractText);
 
 var TAG_ENTRY_RE=/^tag\d+$/;
-function isTagEntry(key){
-  return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);
-}
+function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
 
 app().initializers.add("resofire-menu-control",function(){
 
-  // ── oninit: once per IndexPage mount ─────────────────────────────────────
-  // Cache the parsed order so navItems never JSON.parses on each redraw.
+  // Cache parsed order once per IndexPage mount — no JSON.parse on each redraw.
   _extend.extend(IndexPage().prototype,"oninit",function(){
     var rawOrder=app().forum.attribute("menuControlOrder");
     this._menuOrder=null;
@@ -25,48 +21,11 @@ app().initializers.add("resofire-menu-control",function(){
         }
       }catch(e){}
     }
-    this._menuControlShouldSync=!!(app().session.user&&app().session.user.isAdmin());
   });
 
-  // ── navItems extend: discovery + ordering ─────────────────────────────────
-  //
-  // WHY extend (not override):
-  // 'resofire-menu-control' sorts after all 'flarum-*' and 'fof-*' IDs, so our
-  // initializer runs LAST. The last-registered extend fires LAST in the call
-  // chain, meaning our callback sees items already populated by every other
-  // extension. With override(), our replacement sits inside extensions that
-  // registered after us, so original() only returns the inner (incomplete) items.
+  // Apply saved order. extend fires last (resofire > all other ext IDs alphabetically)
+  // so all other extensions' items are already in `items` when our callback runs.
   _extend.extend(IndexPage().prototype,"navItems",function(items){
-
-    // Discovery: once per mount (flag cleared immediately after first call)
-    if(this._menuControlShouldSync){
-      this._menuControlShouldSync=false;
-
-      var menuKeys=Object.keys(items.toObject()).filter(function(k){return!isTagEntry(k);});
-
-      var labels={};
-      menuKeys.forEach(function(k){
-        try{
-          var text=extractText()(items.get(k));
-          if(text&&text.trim())labels[k]=text.trim();
-        }catch(e){}
-      });
-
-      // Always save both keys and labels so the admin panel reflects
-      // the current state regardless of what was previously stored.
-      app().request({
-        method:"POST",
-        url:app().forum.attribute("apiUrl")+"/settings",
-        body:{
-          "resofire-menu-control.known-keys":JSON.stringify(menuKeys),
-          "resofire-menu-control.labels":JSON.stringify(labels)
-        }
-      }).catch(function(){});
-    }
-
-    // Apply saved order from instance cache — no JSON.parse per redraw.
-    // setPriority mutates the ItemList in-place; extend() returns the original
-    // object reference so our changes are reflected without an explicit return.
     var menuOrder=this._menuOrder;
     if(!menuOrder)return;
     var base=menuOrder.length+200;

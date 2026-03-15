@@ -9,9 +9,7 @@ const _ExtensionPage=flarum.core.compat["components/ExtensionPage"];var Extensio
 const _saveSettings=flarum.core.compat["utils/saveSettings"];var saveSettings=t.n(_saveSettings);
 
 var TAG_ENTRY_RE=/^tag\d+$/;
-function isTagEntry(key){
-  return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);
-}
+function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
 
 var MenuControlPage=function(Base){
   function C(){return Base.apply(this,arguments)||this}
@@ -24,27 +22,25 @@ var MenuControlPage=function(Base){
     this.saveSuccess=false;
     this.draggingKey=null;
     this.dragOverKey=null;
-    var rawLabels=app().data.settings["resofire-menu-control.labels"]||null;
-    this._labels={};
-    try{if(rawLabels)this._labels=JSON.parse(rawLabels);}catch(e){}
     this.orderedKeys=this._buildInitialOrder();
   };
 
+  // PHP-computed authoritative key list from extensions_enabled DB query.
+  // Available as app.forum.attribute('menuControlNavKeys') — set by our
+  // ApiSerializer extender which reads the DB on every request.
   p._buildInitialOrder=function(){
-    var rawOrder=app().data.settings["resofire-menu-control.order"]||null;
-    var rawKnown=app().data.settings["resofire-menu-control.known-keys"]||null;
-    var savedOrder=[];var knownKeys=[];
-    try{savedOrder=rawOrder?JSON.parse(rawOrder):[]}catch(e){}
-    try{knownKeys=rawKnown?JSON.parse(rawKnown):[]}catch(e){}
-    var merged=savedOrder.filter(function(k){return!isTagEntry(k);});
-    knownKeys.forEach(function(k){
-      if(!isTagEntry(k)&&merged.indexOf(k)===-1)merged.push(k);
-    });
-    return merged;
-  };
+    var phpKeys=(app().forum.attribute("menuControlNavKeys")||[])
+      .filter(function(k){return!isTagEntry(k);});
 
-  p._label=function(key){
-    return this._labels[key]||key;
+    var rawOrder=app().data.settings["resofire-menu-control.order"]||null;
+    var savedOrder=[];
+    try{savedOrder=rawOrder?JSON.parse(rawOrder):[]}catch(e){}
+    savedOrder=savedOrder.filter(function(k){return!isTagEntry(k);});
+
+    // Preserve admin's last saved arrangement, then append any new PHP keys.
+    var merged=savedOrder.filter(function(k){return phpKeys.indexOf(k)!==-1;});
+    phpKeys.forEach(function(k){if(merged.indexOf(k)===-1)merged.push(k);});
+    return merged;
   };
 
   p.content=function(){
@@ -53,8 +49,7 @@ var MenuControlPage=function(Base){
     return m("div",{className:"MenuControlPage"},
       m("div",{className:"container"},
         m("p",{className:"helpText"},
-          app().translator.trans("resofire-menu-control.admin.nav_order.description")
-        ),
+          app().translator.trans("resofire-menu-control.admin.nav_order.description")),
         keys.length===0
           ?m("p",{className:"MenuControlPage-empty helpText"},
               app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
@@ -81,27 +76,21 @@ var MenuControlPage=function(Base){
     var isDragging=this.draggingKey===key;
     var isDragOver=this.dragOverKey===key;
     var cls="MenuControlPage-item"+(isDragging?" is-dragging":"")+(isDragOver?" is-dragover":"");
-    return m("li",{
-      key:key,className:cls,draggable:"true",
+    return m("li",{key:key,className:cls,draggable:"true",
       ondragstart:function(e){self.draggingKey=key;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",key);},
       ondragover:function(e){e.preventDefault();e.dataTransfer.dropEffect="move";if(self.dragOverKey!==key){self.dragOverKey=key;m.redraw();}},
       ondragleave:function(e){if(!e.currentTarget.contains(e.relatedTarget)){self.dragOverKey=null;m.redraw();}},
       ondrop:function(e){e.preventDefault();var fk=self.draggingKey;if(fk&&fk!==key)self._moveItem(fk,key);self.draggingKey=null;self.dragOverKey=null;},
-      ondragend:function(){self.draggingKey=null;self.dragOverKey=null;m.redraw();}
-    },
+      ondragend:function(){self.draggingKey=null;self.dragOverKey=null;m.redraw();}},
       m("span",{className:"MenuControlPage-handle","aria-hidden":"true"},"\u2837"),
-      m("span",{className:"MenuControlPage-label"},self._label(key)),
+      m("span",{className:"MenuControlPage-label"},key),
       m("span",{className:"MenuControlPage-arrows"},
-        m(Button(),{
-          className:"Button Button--icon Button--flat",icon:"fas fa-arrow-up",
+        m(Button(),{className:"Button Button--icon Button--flat",icon:"fas fa-arrow-up",
           "aria-label":app().translator.trans("resofire-menu-control.admin.nav_order.move_up"),
-          disabled:index===0,onclick:function(){self._moveUp(index);}
-        }),
-        m(Button(),{
-          className:"Button Button--icon Button--flat",icon:"fas fa-arrow-down",
+          disabled:index===0,onclick:function(){self._moveUp(index);}}),
+        m(Button(),{className:"Button Button--icon Button--flat",icon:"fas fa-arrow-down",
           "aria-label":app().translator.trans("resofire-menu-control.admin.nav_order.move_down"),
-          disabled:index===keys.length-1,onclick:function(){self._moveDown(index);}
-        })
+          disabled:index===keys.length-1,onclick:function(){self._moveDown(index);}})
       )
     );
   };
@@ -125,18 +114,12 @@ var MenuControlPage=function(Base){
     var tmp=arr[index];arr[index]=arr[index+1];arr[index+1]=tmp;
     this.orderedKeys=arr;m.redraw();
   };
-
   p._save=function(){
     var self=this;
     self.saving=true;self.saveSuccess=false;m.redraw();
-    var serialized=JSON.stringify(self.orderedKeys);
-    saveSettings()({
-      "resofire-menu-control.order":serialized,
-      "resofire-menu-control.known-keys":serialized
-    }).then(function(){
-      self.saving=false;self.saveSuccess=true;m.redraw();
-      setTimeout(function(){self.saveSuccess=false;m.redraw();},3000);
-    }).catch(function(){self.saving=false;m.redraw();});
+    saveSettings()({"resofire-menu-control.order":JSON.stringify(self.orderedKeys)})
+      .then(function(){self.saving=false;self.saveSuccess=true;m.redraw();setTimeout(function(){self.saveSuccess=false;m.redraw();},3000);})
+      .catch(function(){self.saving=false;m.redraw();});
   };
 
   return C;
