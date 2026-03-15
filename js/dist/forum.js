@@ -28,53 +28,51 @@ app().initializers.add("resofire-menu-control",function(){
     this._menuControlShouldSync=!!(app().session.user&&app().session.user.isAdmin());
   });
 
-  // ── navItems override: sees the COMPLETE item list from all extensions ────
-  // override() means original() runs the full extend chain before we inspect items.
-  // Using extend() here would fire our callback before outer extensions add theirs.
-  _extend.override(IndexPage().prototype,"navItems",function(original){
-    var items=original(); // Full chain: core + ALL extension extends
+  // ── navItems extend: discovery + ordering ─────────────────────────────────
+  //
+  // WHY extend (not override):
+  // 'resofire-menu-control' sorts after all 'flarum-*' and 'fof-*' IDs, so our
+  // initializer runs LAST. The last-registered extend fires LAST in the call
+  // chain, meaning our callback sees items already populated by every other
+  // extension. With override(), our replacement sits inside extensions that
+  // registered after us, so original() only returns the inner (incomplete) items.
+  _extend.extend(IndexPage().prototype,"navItems",function(items){
 
-    // Discovery: once per mount, admin only
+    // Discovery: once per mount (flag cleared immediately after first call)
     if(this._menuControlShouldSync){
       this._menuControlShouldSync=false;
 
-      var discoveredKeys=Object.keys(items.toObject()).filter(function(k){return!isTagEntry(k);});
+      var menuKeys=Object.keys(items.toObject()).filter(function(k){return!isTagEntry(k);});
 
-      // Extract human-readable label from each item's vnode
       var labels={};
-      discoveredKeys.forEach(function(k){
+      menuKeys.forEach(function(k){
         try{
           var text=extractText()(items.get(k));
           if(text&&text.trim())labels[k]=text.trim();
         }catch(e){}
       });
 
-      var rawKnown=app().forum.attribute("menuControlKnownKeys");
-      var knownKeys=[];
-      try{knownKeys=rawKnown?JSON.parse(rawKnown):[]}catch(e){knownKeys=[];}
-      var merged=knownKeys.slice();
-      var changed=false;
-      discoveredKeys.forEach(function(k){
-        if(merged.indexOf(k)===-1){merged.push(k);changed=true;}
-      });
-
-      var body={"resofire-menu-control.labels":JSON.stringify(labels)};
-      if(changed){body["resofire-menu-control.known-keys"]=JSON.stringify(merged);}
+      // Always save both keys and labels so the admin panel reflects
+      // the current state regardless of what was previously stored.
       app().request({
         method:"POST",
         url:app().forum.attribute("apiUrl")+"/settings",
-        body:body
+        body:{
+          "resofire-menu-control.known-keys":JSON.stringify(menuKeys),
+          "resofire-menu-control.labels":JSON.stringify(labels)
+        }
       }).catch(function(){});
     }
 
-    // Apply saved order from instance cache — no JSON.parse per redraw
+    // Apply saved order from instance cache — no JSON.parse per redraw.
+    // setPriority mutates the ItemList in-place; extend() returns the original
+    // object reference so our changes are reflected without an explicit return.
     var menuOrder=this._menuOrder;
-    if(!menuOrder)return items;
+    if(!menuOrder)return;
     var base=menuOrder.length+200;
     menuOrder.forEach(function(key,index){
       if(items.has(key)){items.setPriority(key,base-index);}
     });
-    return items;
   });
 
 });
