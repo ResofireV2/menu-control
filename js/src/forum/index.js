@@ -1,39 +1,64 @@
 import app from 'flarum/forum/app';
-import { override } from 'flarum/common/extend';
+import { extend } from 'flarum/common/extend';
 import IndexPage from 'flarum/forum/components/IndexPage';
 
-/**
- * Returns true for keys that are NOT reorderable menu items:
- *  - 'separator'       — the visual divider added by flarum/tags
- *  - 'moreTags'        — the "more tags" link added by flarum/tags
- *  - /^tag\d+$/        — individual tag entries (tag1, tag2, tag3 ...)
- *                        added by flarum/tags for each configured tag
- */
+// Compiled once at module load, not on every call
+const TAG_ENTRY_RE = /^tag\d+$/;
+
 function isTagEntry(key) {
-  return key === 'separator' || key === 'moreTags' || /^tag\d+$/.test(key);
+  return key === 'separator' || key === 'moreTags' || TAG_ENTRY_RE.test(key);
 }
 
 app.initializers.add('resofire-menu-control', () => {
-  override(IndexPage.prototype, 'navItems', function (original) {
-    const items = original();
 
-    // ── 1. Persist discovered MENU keys (excluding tag entries) ─────────────
-    if (!app._menuControlKeysSynced) {
-      app._menuControlKeysSynced = true;
+  // ── oninit: runs once per IndexPage mount ──────────────────────────────────
+  // Parse and cache the order here so navItems() never has to do it.
+  // Also run the one-time key discovery here rather than inside navItems().
+  extend(IndexPage.prototype, 'oninit', function () {
+    // Parse and filter the saved order once, store on the instance.
+    const rawOrder = app.forum.attribute('menuControlOrder');
+    this._menuOrder = null;
+    if (rawOrder) {
+      try {
+        const parsed = JSON.parse(rawOrder);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this._menuOrder = parsed.filter(k => !isTagEntry(k));
+        }
+      } catch (e) {
+        // malformed setting — leave as null, navItems will be a no-op
+      }
+    }
+
+    // Key discovery: runs once per IndexPage mount, admin-only, background POST.
+    // We intentionally do NOT use a session-level flag here — if a new extension
+    // is enabled between page visits, the updated key list should be saved.
+    if (app.session.user && app.session.user.isAdmin()) {
+      // We schedule this after the current call stack so navItems() has
+      // already run and populated items before we try to read them.
+      // We read keys in the navItems extend below instead, storing on instance.
+      this._menuControlShouldSync = true;
+    }
+  });
+
+  // ── navItems: runs on every redraw — kept as cheap as possible ─────────────
+  extend(IndexPage.prototype, 'navItems', function (items) {
+    // One-time key discovery per mount: grab keys now that items is populated,
+    // then fire the background save if anything is new.
+    if (this._menuControlShouldSync) {
+      this._menuControlShouldSync = false;
 
       const discoveredKeys = Object.keys(items.toObject()).filter(k => !isTagEntry(k));
-
       const rawKnown = app.forum.attribute('menuControlKnownKeys');
       let knownKeys = [];
       try { knownKeys = rawKnown ? JSON.parse(rawKnown) : []; } catch (e) { knownKeys = []; }
 
-      const merged = [...knownKeys];
+      const merged = knownKeys.slice();
       let changed = false;
-      discoveredKeys.forEach((k) => {
-        if (!merged.includes(k)) { merged.push(k); changed = true; }
+      discoveredKeys.forEach(k => {
+        if (merged.indexOf(k) === -1) { merged.push(k); changed = true; }
       });
 
-      if (changed && app.session.user && app.session.user.isAdmin()) {
+      if (changed) {
         app.request({
           method: 'POST',
           url: app.forum.attribute('apiUrl') + '/settings',
@@ -42,33 +67,16 @@ app.initializers.add('resofire-menu-control', () => {
       }
     }
 
-    // ── 2. Apply the saved order ─────────────────────────────────────────────
-    const rawOrder = app.forum.attribute('menuControlOrder');
-    if (!rawOrder) return items;
+    // Apply order: reads from instance cache set in oninit — no parsing here.
+    const menuOrder = this._menuOrder;
+    if (!menuOrder) return;
 
-    let order;
-    try { order = JSON.parse(rawOrder); } catch (e) { return items; }
-    if (!Array.isArray(order) || order.length === 0) return items;
-
-    // Only act on menu-level keys — never touch tag entries.
-    const menuOrder = order.filter(k => !isTagEntry(k));
-
-    // Priorities for ordered menu items start well above the highest any
-    // extension uses (core allDiscussions = 100, tags = -10, tag entries = -14).
-    // Using 200+ guarantees the ordered block floats above everything.
     const base = menuOrder.length + 200;
-
     menuOrder.forEach((key, index) => {
       if (items.has(key)) {
         items.setPriority(key, base - index);
       }
     });
-
-    // Menu items NOT in the saved order (newly added extensions) stay below
-    // the ordered block but above tag entries by staying at their original
-    // negative priority — we leave them untouched entirely.
-    // Tag entries keep their original priorities (around -14) untouched.
-
-    return items;
   });
+
 });

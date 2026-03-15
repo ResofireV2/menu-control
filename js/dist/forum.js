@@ -4,29 +4,48 @@ const _app=flarum.core.compat["forum/app"];var app=t.n(_app);
 const _extend=flarum.core.compat["common/extend"];
 const _IndexPage=flarum.core.compat["forum/components/IndexPage"];var IndexPage=t.n(_IndexPage);
 
-// Returns true for keys that are tag entries added by flarum/tags,
-// not reorderable menu items: 'separator', 'moreTags', 'tag1', 'tag2' ...
+// Compiled once at module load
+var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){
-  return key==="separator"||key==="moreTags"||/^tag\d+$/.test(key);
+  return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);
 }
 
 app().initializers.add("resofire-menu-control",function(){
-  _extend.override(IndexPage().prototype,"navItems",function(original){
-    var items=original();
 
-    // ── 1. Persist discovered menu keys (tag entries excluded) ──────────────
-    if(!app()._menuControlKeysSynced){
-      app()._menuControlKeysSynced=true;
-      var discoveredKeys=Object.keys(items.toObject()).filter(function(k){return!isTagEntry(k)});
+  // ── oninit: once per IndexPage mount ─────────────────────────────────────
+  // Parse and cache the order so navItems never has to JSON.parse on each redraw.
+  _extend.extend(IndexPage().prototype,"oninit",function(){
+    var rawOrder=app().forum.attribute("menuControlOrder");
+    this._menuOrder=null;
+    if(rawOrder){
+      try{
+        var parsed=JSON.parse(rawOrder);
+        if(Array.isArray(parsed)&&parsed.length>0){
+          this._menuOrder=parsed.filter(function(k){return!isTagEntry(k);});
+        }
+      }catch(e){}
+    }
+    // Flag for one-time key discovery on first navItems call this mount
+    if(app().session.user&&app().session.user.isAdmin()){
+      this._menuControlShouldSync=true;
+    }
+  });
+
+  // ── navItems: every redraw — minimal work, reads from instance cache ──────
+  _extend.extend(IndexPage().prototype,"navItems",function(items){
+    // Discovery: runs once per mount (flag cleared after first navItems call)
+    if(this._menuControlShouldSync){
+      this._menuControlShouldSync=false;
+      var discoveredKeys=Object.keys(items.toObject()).filter(function(k){return!isTagEntry(k);});
       var rawKnown=app().forum.attribute("menuControlKnownKeys");
       var knownKeys=[];
-      try{knownKeys=rawKnown?JSON.parse(rawKnown):[]}catch(e){knownKeys=[]}
+      try{knownKeys=rawKnown?JSON.parse(rawKnown):[]}catch(e){knownKeys=[];}
       var merged=knownKeys.slice();
       var changed=false;
       discoveredKeys.forEach(function(k){
         if(merged.indexOf(k)===-1){merged.push(k);changed=true;}
       });
-      if(changed&&app().session.user&&app().session.user.isAdmin()){
+      if(changed){
         app().request({
           method:"POST",
           url:app().forum.attribute("apiUrl")+"/settings",
@@ -35,25 +54,15 @@ app().initializers.add("resofire-menu-control",function(){
       }
     }
 
-    // ── 2. Apply the saved order ─────────────────────────────────────────────
-    var rawOrder=app().forum.attribute("menuControlOrder");
-    if(!rawOrder)return items;
-    var order;
-    try{order=JSON.parse(rawOrder)}catch(e){return items}
-    if(!Array.isArray(order)||order.length===0)return items;
-
-    // Strip any tag entries that may have been saved before this fix
-    var menuOrder=order.filter(function(k){return!isTagEntry(k)});
-
-    // Use base 200+ so ordered items always float well above tag entries (-14)
+    // Apply order from instance cache — no parsing, no filtering on each redraw
+    var menuOrder=this._menuOrder;
+    if(!menuOrder)return;
     var base=menuOrder.length+200;
     menuOrder.forEach(function(key,index){
       if(items.has(key)){items.setPriority(key,base-index);}
     });
-    // Tag entries and unordered items are left at their original priorities
-
-    return items;
   });
+
 });
 
 })(),module.exports=o})();
