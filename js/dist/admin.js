@@ -123,12 +123,21 @@ var MenuControlPage=function(Base){
     var self=this;
     self.saving=true;self.saveSuccess=false;m.redraw();
     var serialized=JSON.stringify(self.orderedKeys);
-    saveSettings()({"resofire-menu-control.order":serialized})
-      .then(function(){
-        self.saving=false;self.saveSuccess=true;m.redraw();
-        setTimeout(function(){self.saveSuccess=false;m.redraw();},3000);
-      })
-      .catch(function(){self.saving=false;m.redraw();});
+    app().request({
+      method:"POST",
+      url:app().forum.attribute("apiUrl")+"/settings",
+      body:{"resofire-menu-control.order":serialized}
+    }).then(function(){
+      app().data.settings["resofire-menu-control.order"]=serialized;
+      self.saving=false;self.saveSuccess=true;m.redraw();
+      setTimeout(function(){self.saveSuccess=false;m.redraw();},3000);
+    }).catch(function(e){
+      self.saving=false;
+      // Show the error in an alert so we know exactly what failed
+      var msg=(e&&e.message)||(e&&JSON.stringify(e))||"Save failed";
+      alert("Menu Control save error: "+msg);
+      m.redraw();
+    });
   };
 
   return C;
