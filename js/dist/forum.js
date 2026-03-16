@@ -38,7 +38,18 @@ app().initializers.add("resofire-menu-control",function(){
     this._highlighted=app().forum.attribute("menuControlHighlighted")||[];
     var hlColor=app().forum.attribute("menuControlHighlightColor");
     if(hlColor&&hlColor.trim()){
-      document.documentElement.style.setProperty("--mc-highlight-color",hlColor.trim());
+      var hex=hlColor.trim();
+      document.documentElement.style.setProperty("--mc-highlight-color",hex);
+      // Also set an rgba version for background opacity (0.35 alpha)
+      var r=0,g=0,b=0;
+      var h=hex.replace("#","");
+      if(h.length===3){h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];}
+      if(h.length===6){
+        r=parseInt(h.substring(0,2),16);
+        g=parseInt(h.substring(2,4),16);
+        b=parseInt(h.substring(4,6),16);
+      }
+      document.documentElement.style.setProperty("--mc-highlight-bg","rgba("+r+","+g+","+b+",0.35)");
     }
   });
 
