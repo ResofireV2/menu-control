@@ -79,9 +79,12 @@ app().initializers.add("resofire-menu-control",function(){
       // Remove items hidden from guests (only when not logged in)
       var guestHidden=self._guestHidden;
       if(guestHidden){
+        console.log("[MC] guest-hidden keys:",guestHidden,"items keys:",Object.keys(items.toObject()));
         guestHidden.forEach(function(key){
+          console.log("[MC] trying remove:",key,"has:",items.has(key));
           if(items.has(key)){items.remove(key);}
         });
+        console.log("[MC] after remove:",Object.keys(items.toObject()));
       }
 
       if(menuOrder&&menuOrder.length>0){
