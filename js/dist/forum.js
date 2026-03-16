@@ -65,13 +65,27 @@ app().initializers.add("resofire-menu-control",function(){
             }
           }catch(e){}
         });
+        // Build the actual rendered order from toArray() result
+        // (keys in priority-sorted order, excluding tag entries)
+        var renderedOrder=Object.keys(items.toObject())
+          .filter(function(k){return!isTagEntry(k);});
+
+        var body={
+          "resofire-menu-control.labels":JSON.stringify(labels),
+          "resofire-menu-control.icons":JSON.stringify(icons)
+        };
+
+        // Only save the order if none has been saved yet — preserves any
+        // existing admin-configured order on reinstall/upgrade
+        var existingOrder=app().forum.attribute("menuControlOrder");
+        if(!existingOrder&&renderedOrder.length>0){
+          body["resofire-menu-control.order"]=JSON.stringify(renderedOrder);
+        }
+
         app().request({
           method:"POST",
           url:app().forum.attribute("apiUrl")+"/settings",
-          body:{
-            "resofire-menu-control.labels":JSON.stringify(labels),
-            "resofire-menu-control.icons":JSON.stringify(icons)
-          }
+          body:body
         }).catch(function(){});
       }
 

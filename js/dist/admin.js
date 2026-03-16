@@ -69,6 +69,19 @@ var MenuControlPage=function(Base){
     savedOrder=savedOrder.filter(function(k){return!isTagEntry(k);});
     var merged=savedOrder.filter(function(k){return phpKeys.indexOf(k)!==-1;});
     phpKeys.forEach(function(k){if(merged.indexOf(k)===-1)merged.push(k);});
+
+    // If no saved order exists yet, apply a sensible default:
+    // move 'tags' to the end since it is always last in Flarum's nav.
+    // This prevents the PHP discovery order (which is alphabetical by
+    // extension load order) from showing Tags second.
+    if(!rawOrder){
+      var tagsIdx=merged.indexOf("tags");
+      if(tagsIdx!==-1&&tagsIdx!==merged.length-1){
+        merged.splice(tagsIdx,1);
+        merged.push("tags");
+      }
+    }
+
     return merged;
   };
 
