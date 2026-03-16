@@ -10,16 +10,16 @@ use Flarum\Settings\SettingsRepositoryInterface;
  * Discovers nav item keys by scanning each enabled extension's compiled
  * js/dist/forum.js for items.add() calls inside navItems extend blocks.
  *
- * This runs entirely server-side — no forum page visit required.
- * Results are cached in the settings table and refreshed whenever the
- * set of enabled extensions changes.
+ * This is entirely server-side — no forum page visit required.
+ * Results are cached and only re-scanned when extensions_enabled changes.
  */
 class NavItemsSerializer
 {
-    /** Keys that are always present from core, regardless of extensions. */
     private const CORE_KEYS = ['allDiscussions'];
 
-    /** Keys that are structural (separators, dynamic tag links) — always excluded. */
+    private const CORE_LABELS = ['allDiscussions' => 'All Discussions'];
+
+    /** Keys that are structural/dynamic — always excluded. */
     private const EXCLUDED_KEYS = ['separator', 'moreTags'];
 
     public function __construct(
@@ -39,24 +39,21 @@ class NavItemsSerializer
 
     private function getNavKeysAndLabels(): array
     {
-        // Cache key includes the current extensions_enabled value so we
-        // auto-refresh whenever extensions are enabled or disabled.
         $enabledJson = $this->settings->get('extensions_enabled', '[]');
-        $cacheKey    = 'resofire-menu-control.discovered-for:' . md5($enabledJson);
+        $currentHash = md5($enabledJson);
 
-        // Check if our cached discovery still matches the current extension set.
-        $cachedFor = $this->settings->get('resofire-menu-control.discovered-for', '');
-        $cachedKeys = $this->settings->get('resofire-menu-control.known-keys', '[]');
-
-        if ($cachedFor === md5($enabledJson) && $cachedKeys !== '[]') {
-            $keys   = json_decode($cachedKeys, true) ?? [];
+        // Return cached result if the extension set hasn't changed.
+        if ($this->settings->get('resofire-menu-control.discovered-for') === $currentHash) {
+            $keys   = json_decode($this->settings->get('resofire-menu-control.known-keys', '[]'), true) ?? [];
             $labels = json_decode($this->settings->get('resofire-menu-control.labels', '{}'), true) ?? [];
-            return [$keys, $labels];
+            if (!empty($keys)) {
+                return [$keys, $labels];
+            }
         }
 
-        // Re-scan extension JS files.
+        // Scan each enabled extension's forum.js for navItems keys.
         $keys   = self::CORE_KEYS;
-        $labels = ['allDiscussions' => 'All Discussions'];
+        $labels = self::CORE_LABELS;
 
         foreach ($this->extensions->getEnabledExtensions() as $extension) {
             $forumJs = $extension->getPath() . '/js/dist/forum.js';
@@ -64,18 +61,15 @@ class NavItemsSerializer
                 continue;
             }
 
-            $discovered = $this->extractNavKeys(file_get_contents($forumJs));
-            foreach ($discovered as $key) {
+            foreach ($this->extractNavKeys(file_get_contents($forumJs)) as $key) {
                 if (!in_array($key, $keys, true)) {
                     $keys[]        = $key;
-                    // Use the extension title as a fallback label; JS-saved
-                    // labels (with real text) will override this if present.
-                    $labels[$key]  = $key;
+                    $labels[$key]  = $key; // raw key as fallback label
                 }
             }
         }
 
-        // Merge any JS-discovered labels (the real display text from extractText()).
+        // Apply any JS-saved display labels (the real human-readable text).
         $jsLabels = json_decode(
             $this->settings->get('resofire-menu-control.labels', '{}'), true
         ) ?? [];
@@ -85,35 +79,30 @@ class NavItemsSerializer
             }
         }
 
-        // Persist so we don't re-scan on every request.
+        // Cache results keyed to current extension set.
         $this->settings->set('resofire-menu-control.known-keys', json_encode($keys));
-        $this->settings->set('resofire-menu-control.discovered-for', md5($enabledJson));
+        $this->settings->set('resofire-menu-control.discovered-for', $currentHash);
 
         return [$keys, $labels];
     }
 
     /**
-     * Extract navItems keys from a compiled forum.js file.
-     *
-     * Looks for the pattern:  "navItems", function(...){ ... o.add("key", ...
-     * Excludes concatenated keys like  o.add("tag" + id, ...)
-     * Excludes structural keys (separator, moreTags) and tag\d+ patterns.
+     * Extract navItems keys from compiled forum.js content.
+     * Handles both single and double quoted strings in minified JS.
      */
     private function extractNavKeys(string $js): array
     {
         $keys = [];
 
-        // Match navItems extend/override blocks in minified JS.
-        // The block after the function opening brace can be up to ~3000 chars.
-        preg_match_all(
-            '/"navItems"\s*,\s*\(?function[^{]*\{(.{0,3000}?)(?:\}\)|\}\);\})/s',
-            $js,
-            $matches
-        );
+        // Match navItems extend/override blocks — both quote styles.
+        // The block after { can be long in minified code (~3000 chars is safe).
+        $pattern = '/["\']navItems["\'][\s,]*\(?function[^{]*\{(.{0,3000}?)(?:\}\)|\}\);\})/s';
+        preg_match_all($pattern, $js, $matches);
 
         foreach ($matches[1] as $block) {
-            // Find .add("key", where key is NOT followed by + (not a concatenation)
-            preg_match_all('/\.add\("([a-zA-Z][a-zA-Z0-9_-]*)"\s*(?!\+)/', $block, $keyMatches);
+            // Match .add("key" or .add('key') — but NOT .add("key"+ or .add('key'+
+            // (the + guard excludes string concatenations like "tag" + id)
+            preg_match_all('/\.add\(["\']([a-zA-Z][a-zA-Z0-9_-]*)["\'](?!\s*\+)/', $block, $keyMatches);
             foreach ($keyMatches[1] as $key) {
                 if ($this->isValidNavKey($key) && !in_array($key, $keys, true)) {
                     $keys[] = $key;
@@ -129,7 +118,6 @@ class NavItemsSerializer
         if (in_array($key, self::EXCLUDED_KEYS, true)) {
             return false;
         }
-        // Exclude tag1, tag2, tag3... etc.
         if (preg_match('/^tag\d+$/', $key)) {
             return false;
         }
