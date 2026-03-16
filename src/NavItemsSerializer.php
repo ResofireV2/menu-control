@@ -5,29 +5,26 @@ namespace Resofire\MenuControl;
 use Flarum\Api\Serializer\ForumSerializer;
 use Flarum\Settings\SettingsRepositoryInterface;
 
-/**
- * Invokable ApiSerializer attributes callback.
- * Reads extensions_enabled from DB and maps to nav item keys + display labels.
- */
 class NavItemsSerializer
 {
     /**
-     * Map of extension ID → [navItemKey, displayLabel]
-     * Keys verified from runtime discovery (admin panel screenshots).
+     * Map of extension ID → [[navItemKey, displayLabel], ...]
+     * Keys verified from live console output on the actual install.
      */
     private const NAV_KEY_MAP = [
-        'flarum-tags'              => [['tags',              'Tags']],
-        'flarum-subscriptions'     => [['following',         'Following']],
-        'fof-user-directory'       => [['fof-user-directory','User Directory']],
-        'fof-badges'               => [['fof-user-badges',   'Badges']],
-        'fof-user-badges'          => [['fof-user-badges',   'Badges']],
-        'huseyinfiliz-leaderboard' => [['leaderboard',       'Leaderboard']],
-        'huseyinfiliz-pickem'      => [['pickem',            "Pick'em"]],
-        'huseyinfiliz-gamepedia'   => [['gamepedia',         'Gamepedia']],
-        'huseyinfiliz-awards'      => [['awards',            'Awards']],
+        'flarum-tags'              => [['tags',                   'Tags']],
+        'flarum-subscriptions'     => [['following',              'Following']],
+        'fof-user-directory'       => [['fof-user-directory',     'User Directory']],
+        // Actual key observed in console: 'badges' (not 'fof-user-badges')
+        'fof-badges'               => [['badges',                 'Badges']],
+        'fof-user-badges'          => [['badges',                 'Badges']],
+        // Actual key observed in console: 'huseyinfiliz-leaderboard' (not 'leaderboard')
+        'huseyinfiliz-leaderboard' => [['huseyinfiliz-leaderboard', 'Leaderboard']],
+        'huseyinfiliz-pickem'      => [['huseyinfiliz-pickem',    "Pick'em"]],
+        'huseyinfiliz-gamepedia'   => [['huseyinfiliz-gamepedia', 'Gamepedia']],
+        'huseyinfiliz-awards'      => [['huseyinfiliz-awards',    'Awards']],
     ];
 
-    /** Labels for keys that always exist regardless of extensions */
     private const CORE_LABELS = [
         'allDiscussions' => 'All Discussions',
     ];
@@ -60,20 +57,18 @@ class NavItemsSerializer
             }
             foreach (self::NAV_KEY_MAP[$extId] as [$navKey, $label]) {
                 if (!in_array($navKey, $keys, true)) {
-                    $keys[]         = $navKey;
+                    $keys[]          = $navKey;
                     $labels[$navKey] = $label;
                 }
             }
         }
 
-        // Merge JS-discovered keys as fallback for unknown/unlisted extensions.
-        // These come from previous JS-side discovery saves.
+        // Merge JS-discovered keys as fallback for unknown extensions.
         $savedJson = $this->settings->get('resofire-menu-control.known-keys', '[]');
         $savedKeys = json_decode($savedJson, true) ?? [];
         foreach ($savedKeys as $k) {
             if (is_string($k) && $k !== '' && !in_array($k, $keys, true)) {
                 $keys[] = $k;
-                // No label known — JS will fall back to showing the raw key
             }
         }
 
