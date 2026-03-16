@@ -69,7 +69,11 @@ app().initializers.add("resofire-menu-control",function(){
         });
       }
 
-      if(menuFlip){
+      // Only apply flip on desktop — on mobile/tablet the nav renders as a
+      // horizontal SelectDropdown where flip doesn't make sense.
+      // app().screen() returns 'phone'|'tablet'|'desktop'|'desktop-hd'
+      var isDesktop=app().screen()==="desktop"||app().screen()==="desktop-hd";
+      if(menuFlip&&isDesktop){
         var allKeys=Object.keys(items.toObject());
         var navKeys=[];
         allKeys.forEach(function(k){
