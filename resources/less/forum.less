@@ -15,18 +15,24 @@
   }
 
   .sideNav .Dropdown--select .Dropdown-menu > li.MenuControl-highlighted {
-    background: var(--mc-highlight-color, @control-bg);
-    border-radius: 4px;
     animation: mc-highlight-pulse 2s ease-in-out infinite;
 
     > a {
       color: var(--primary-color) !important;
       font-weight: bold;
-      background: transparent !important;
+      background: var(--mc-highlight-color, @control-bg) !important;
+      border-radius: 4px;
+      padding-left: 35px !important;
+      margin-left: -5px;
+      margin-right: -5px;
+
+      .Button-icon {
+        margin-left: -25px;
+      }
     }
 
     > a:hover {
-      background: transparent !important;
+      background: var(--mc-highlight-color, @control-bg) !important;
     }
   }
 
