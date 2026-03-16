@@ -9,8 +9,17 @@
   }
 
   .sideNav .Dropdown--select .Dropdown-menu > li.MenuControl-highlighted {
-    border-left: 3px solid var(--primary-color);
-    margin-left: -3px;
+    position: relative;
+
+    &::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--primary-color);
+    }
 
     > a {
       color: var(--primary-color) !important;
