@@ -27,6 +27,9 @@ return [
         })
         ->serializeToForum('menuControlIcons', 'resofire-menu-control.icons', function ($value) {
             return $value ? json_decode($value, true) : (object)[];
+        })
+        ->serializeToForum('menuControlCustomIcons', 'resofire-menu-control.custom-icons', function ($value) {
+            return $value ? json_decode($value, true) : (object)[];
         }),
 
     (new Extend\ApiSerializer(ForumSerializer::class))
