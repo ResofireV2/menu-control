@@ -33,6 +33,9 @@ return [
         })
         ->serializeToForum('menuControlHighlighted', 'resofire-menu-control.highlighted', function ($value) {
             return $value ? json_decode($value, true) : [];
+        })
+        ->serializeToForum('menuControlHighlightColor', 'resofire-menu-control.highlight-color', function ($value) {
+            return $value ?: null;
         }),
 
     (new Extend\ApiSerializer(ForumSerializer::class))

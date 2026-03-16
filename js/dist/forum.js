@@ -36,6 +36,10 @@ app().initializers.add("resofire-menu-control",function(){
     this._menuFlip=!!app().forum.attribute("menuControlFlip");
     this._customIcons=app().forum.attribute("menuControlCustomIcons")||{};
     this._highlighted=app().forum.attribute("menuControlHighlighted")||[];
+    var hlColor=app().forum.attribute("menuControlHighlightColor");
+    if(hlColor&&hlColor.trim()){
+      document.documentElement.style.setProperty("--mc-highlight-color",hlColor.trim());
+    }
   });
 
   _extend.extend(IndexPage().prototype,"navItems",function(items){

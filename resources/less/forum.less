@@ -1,5 +1,11 @@
 // resofire/menu-control — Forum Styles
 
+@keyframes mc-highlight-pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
 @media @desktop-up {
 
   body.resofire-sticky-nav .IndexPage-nav {
@@ -8,11 +14,16 @@
     align-self: flex-start;
   }
 
-  .sideNav .Dropdown--select .Dropdown-menu > li.MenuControl-highlighted > a {
-    color: var(--primary-color) !important;
-    font-weight: bold;
-    background: @control-bg !important;
+  .sideNav .Dropdown--select .Dropdown-menu > li.MenuControl-highlighted {
+    background: var(--mc-highlight-color, @control-bg);
     border-radius: 4px;
+    animation: mc-highlight-pulse 2s ease-in-out infinite;
+
+    > a {
+      color: var(--primary-color) !important;
+      font-weight: bold;
+      background: transparent !important;
+    }
   }
 
 }

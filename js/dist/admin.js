@@ -9,6 +9,7 @@ const _Switch=flarum.core.compat["common/components/Switch"];var Switch=t.n(_Swi
 const _Stream=flarum.core.compat["common/utils/Stream"];var Stream=t.n(_Stream);
 const _ExtensionPage=flarum.core.compat["components/ExtensionPage"];var ExtensionPage=t.n(_ExtensionPage);
 const _saveSettings=flarum.core.compat["admin/utils/saveSettings"];var saveSettings=t.n(_saveSettings);
+const _ColorPreviewInput=flarum.core.compat["common/components/ColorPreviewInput"];var ColorPreviewInput=t.n(_ColorPreviewInput);
 
 var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
@@ -43,6 +44,11 @@ var MenuControlPage=function(Base){
     try{customIconsObj=rawCustomIcons?JSON.parse(rawCustomIcons):{}}catch(e){}
     this.customIcons=Stream()(customIconsObj);
     this._savedCustomIcons=JSON.stringify(customIconsObj);
+
+    // Highlight color
+    var rawHlColor=app().data.settings["resofire-menu-control.highlight-color"]||"";
+    this.highlightColor=Stream()(rawHlColor);
+    this._savedHighlightColor=rawHlColor;
 
     // Highlighted items
     var rawHighlighted=app().data.settings["resofire-menu-control.highlighted"];
@@ -99,6 +105,7 @@ var MenuControlPage=function(Base){
     if(this.stickyNav()!==this._savedSticky)return true;
     if(JSON.stringify(this.customIcons())!==this._savedCustomIcons)return true;
     if(JSON.stringify(this.highlighted())!==this._savedHighlighted)return true;
+    if(this.highlightColor()!==this._savedHighlightColor)return true;
     var a=this.orderedKeys,b=this._savedOrder;
     if(a.length!==b.length)return true;
     for(var i=0;i<a.length;i++){if(a[i]!==b[i])return true;}
@@ -111,7 +118,8 @@ var MenuControlPage=function(Base){
       "resofire-menu-control.flip":this.flipNav()?"1":"0",
       "resofire-menu-control.sticky":this.stickyNav()?"1":"0",
       "resofire-menu-control.custom-icons":JSON.stringify(this.customIcons()),
-      "resofire-menu-control.highlighted":JSON.stringify(this.highlighted())
+      "resofire-menu-control.highlighted":JSON.stringify(this.highlighted()),
+      "resofire-menu-control.highlight-color":this.highlightColor()
     };
   };
 
@@ -132,6 +140,7 @@ var MenuControlPage=function(Base){
         self._savedSticky=self.stickyNav();
         self._savedCustomIcons=JSON.stringify(self.customIcons());
         self._savedHighlighted=JSON.stringify(self.highlighted());
+        self._savedHighlightColor=self.highlightColor();
       })
       .catch(function(){})
       .then(function(){self.loading=false;m.redraw();});
@@ -162,6 +171,17 @@ var MenuControlPage=function(Base){
           ),
           m("p",{className:"helpText",style:"margin-top:-8px;margin-bottom:16px;"},
             app().translator.trans("resofire-menu-control.admin.nav_order.sticky_help")),
+          m("div",{className:"Form-group"},
+            m("label",{className:"control-label"},
+              app().translator.trans("resofire-menu-control.admin.nav_order.highlight_color_label")),
+            m("p",{className:"helpText"},
+              app().translator.trans("resofire-menu-control.admin.nav_order.highlight_color_help")),
+            ColorPreviewInput().component({
+              value:self.highlightColor()||"",
+              placeholder:"#536F90",
+              oninput:function(e){self.highlightColor(e.target.value);m.redraw();}
+            })
+          ),
           keys.length===0
             ?m("p",{className:"MenuControlPage-empty helpText"},
                 app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
