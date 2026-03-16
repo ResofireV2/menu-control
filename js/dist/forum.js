@@ -3,13 +3,16 @@
 const _app=flarum.core.compat["forum/app"];var app=t.n(_app);
 const _extend=flarum.core.compat["common/extend"];
 const _IndexPage=flarum.core.compat["forum/components/IndexPage"];var IndexPage=t.n(_IndexPage);
+const _extractText=flarum.core.compat["utils/extractText"];var extractText=t.n(_extractText);
 
 var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
 
+// Fire discovery POST at most once per page load (admin only).
+var synced=false;
+
 app().initializers.add("resofire-menu-control",function(){
 
-  // Cache parsed order once per IndexPage mount.
   _extend.extend(IndexPage().prototype,"oninit",function(){
     var rawOrder=app().forum.attribute("menuControlOrder");
     this._menuOrder=null;
@@ -23,27 +26,51 @@ app().initializers.add("resofire-menu-control",function(){
     }
   });
 
-  // Intercept toArray() on the ItemList that navItems() returns.
-  //
-  // The extend chain problem: other extensions (leaderboard, badges, following etc.)
-  // add their navItems AFTER our extend callback fires, so we can't see them in our
-  // callback. However, sidebarItems() calls navItems().toArray() AFTER the full
-  // extend chain completes — at toArray() time ALL items are present.
-  //
-  // By wrapping toArray() on the returned ItemList, we apply our priorities
-  // at the right moment: after all extensions have added their items,
-  // but before the final priority-sort happens inside toArray().
+  // Intercept toArray() on the navItems ItemList.
+  // This fires AFTER all extensions have added their items (the extend chain
+  // has fully resolved), so we see every real key with its real label.
+  // We use this for two purposes:
+  //   1. Apply the saved order (priorities) before the sort runs.
+  //   2. Discover and persist real keys+labels to DB (admin only, once per session).
   _extend.extend(IndexPage().prototype,"navItems",function(items){
     var self=this;
     var menuOrder=self._menuOrder;
-    if(!menuOrder)return;
 
     var origToArray=items.toArray.bind(items);
     items.toArray=function(keepPrimitives){
-      var base=menuOrder.length+200;
-      menuOrder.forEach(function(key,index){
-        if(items.has(key)){items.setPriority(key,base-index);}
-      });
+
+      // ── 1. Discovery: save real keys+labels to DB ──────────────────────────
+      // Runs once per page load for admins. At toArray() time every extension
+      // has already added its items, so keys and labels are the ground truth.
+      if(!synced&&app().session.user&&app().session.user.isAdmin()){
+        synced=true;
+        var realKeys=Object.keys(items.toObject()).filter(function(k){return!isTagEntry(k);});
+        var labels={};
+        realKeys.forEach(function(k){
+          try{
+            var txt=extractText()(items.get(k));
+            if(txt&&txt.trim())labels[k]=txt.trim();
+          }catch(e){}
+        });
+        app().request({
+          method:"POST",
+          url:app().forum.attribute("apiUrl")+"/settings",
+          body:{
+            "resofire-menu-control.known-keys":JSON.stringify(realKeys),
+            "resofire-menu-control.labels":JSON.stringify(labels)
+          }
+        }).catch(function(){});
+      }
+
+      // ── 2. Apply saved order ───────────────────────────────────────────────
+      if(menuOrder){
+        var base=menuOrder.length+200;
+        menuOrder.forEach(function(key,index){
+          if(items.has(key)){items.setPriority(key,base-index);}
+        });
+      }
+
+      // Restore original toArray so subsequent redraws don't re-wrap.
       items.toArray=origToArray;
       return origToArray(keepPrimitives);
     };

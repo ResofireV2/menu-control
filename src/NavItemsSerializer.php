@@ -5,73 +5,35 @@ namespace Resofire\MenuControl;
 use Flarum\Api\Serializer\ForumSerializer;
 use Flarum\Settings\SettingsRepositoryInterface;
 
+/**
+ * Serializes nav item keys and labels to the forum/admin API payload.
+ *
+ * Keys and labels come entirely from the DB — saved there by the forum JS
+ * via the toArray() intercept, which fires after every extension has added
+ * its items. This means keys are always the real values the extensions use,
+ * not hardcoded guesses.
+ *
+ * On first install (before any forum visit), known-keys is empty and the
+ * admin panel will prompt the admin to visit the forum index page first.
+ */
 class NavItemsSerializer
 {
-    /**
-     * Map of extension ID → [[navItemKey, displayLabel], ...]
-     * Keys verified from live console output on the actual install.
-     */
-    private const NAV_KEY_MAP = [
-        'flarum-tags'              => [['tags',                   'Tags']],
-        'flarum-subscriptions'     => [['following',              'Following']],
-        'fof-user-directory'       => [['fof-user-directory',     'User Directory']],
-        // Actual key observed in console: 'badges' (not 'fof-user-badges')
-        'fof-badges'               => [['badges',                 'Badges']],
-        'fof-user-badges'          => [['badges',                 'Badges']],
-        // Actual key observed in console: 'huseyinfiliz-leaderboard' (not 'leaderboard')
-        'huseyinfiliz-leaderboard' => [['huseyinfiliz-leaderboard', 'Leaderboard']],
-        'huseyinfiliz-pickem'      => [['huseyinfiliz-pickem',    "Pick'em"]],
-        'huseyinfiliz-gamepedia'   => [['huseyinfiliz-gamepedia', 'Gamepedia']],
-        'huseyinfiliz-awards'      => [['huseyinfiliz-awards',    'Awards']],
-    ];
-
-    private const CORE_LABELS = [
-        'allDiscussions' => 'All Discussions',
-    ];
-
     public function __construct(
         private SettingsRepositoryInterface $settings
     ) {}
 
     public function __invoke(ForumSerializer $serializer): array
     {
-        [$keys, $labels] = $this->computeNavKeysAndLabels();
+        // Keys discovered at runtime by forum JS and saved to DB.
+        $keysJson  = $this->settings->get('resofire-menu-control.known-keys', '[]');
+        $labelsJson = $this->settings->get('resofire-menu-control.labels', '{}');
+
+        $keys   = json_decode($keysJson,   true) ?? [];
+        $labels = json_decode($labelsJson, true) ?? [];
 
         return [
-            'menuControlNavKeys'   => $keys,
-            'menuControlNavLabels' => $labels,
+            'menuControlNavKeys'   => array_values(array_filter($keys, 'is_string')),
+            'menuControlNavLabels' => is_array($labels) ? $labels : [],
         ];
-    }
-
-    private function computeNavKeysAndLabels(): array
-    {
-        $keys   = ['allDiscussions'];
-        $labels = self::CORE_LABELS;
-
-        $enabledJson = $this->settings->get('extensions_enabled', '[]');
-        $enabled = json_decode($enabledJson, true) ?? [];
-
-        foreach ($enabled as $extId) {
-            if (!isset(self::NAV_KEY_MAP[$extId])) {
-                continue;
-            }
-            foreach (self::NAV_KEY_MAP[$extId] as [$navKey, $label]) {
-                if (!in_array($navKey, $keys, true)) {
-                    $keys[]          = $navKey;
-                    $labels[$navKey] = $label;
-                }
-            }
-        }
-
-        // Merge JS-discovered keys as fallback for unknown extensions.
-        $savedJson = $this->settings->get('resofire-menu-control.known-keys', '[]');
-        $savedKeys = json_decode($savedJson, true) ?? [];
-        foreach ($savedKeys as $k) {
-            if (is_string($k) && $k !== '' && !in_array($k, $keys, true)) {
-                $keys[] = $k;
-            }
-        }
-
-        return [$keys, $labels];
     }
 }
