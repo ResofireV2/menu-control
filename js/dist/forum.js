@@ -3,9 +3,13 @@
 const _app=flarum.core.compat["forum/app"];var app=t.n(_app);
 const _extend=flarum.core.compat["common/extend"];
 const _IndexPage=flarum.core.compat["forum/components/IndexPage"];var IndexPage=t.n(_IndexPage);
+const _extractText=flarum.core.compat["utils/extractText"];var extractText=t.n(_extractText);
 
 var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
+
+// Fire the labels POST at most once per page load (admin only).
+var labelsSynced=false;
 
 app().initializers.add("resofire-menu-control",function(){
 
@@ -22,20 +26,42 @@ app().initializers.add("resofire-menu-control",function(){
     }
   });
 
-  // Apply saved order by intercepting toArray() on the navItems ItemList.
-  // At toArray() time, ALL extensions have added their items — we apply
-  // priorities there, just before the sort runs inside ItemList.toArray().
   _extend.extend(IndexPage().prototype,"navItems",function(items){
     var self=this;
     var menuOrder=self._menuOrder;
-    if(!menuOrder)return;
 
     var origToArray=items.toArray.bind(items);
     items.toArray=function(keepPrimitives){
-      var base=menuOrder.length+200;
-      menuOrder.forEach(function(key,index){
-        if(items.has(key)){items.setPriority(key,base-index);}
-      });
+
+      // Save real display labels to DB (admin only, once per page load).
+      // At toArray() time every extension has added its items, so extractText()
+      // gives us the actual rendered label text (e.g. "Pick'em", "Awards").
+      // PHP uses the raw key as a fallback label; this POST provides the real ones.
+      if(!labelsSynced&&app().session.user&&app().session.user.isAdmin()){
+        labelsSynced=true;
+        var labels={};
+        Object.keys(items.toObject()).forEach(function(k){
+          if(isTagEntry(k))return;
+          try{
+            var txt=extractText()(items.get(k));
+            if(txt&&txt.trim())labels[k]=txt.trim();
+          }catch(e){}
+        });
+        app().request({
+          method:"POST",
+          url:app().forum.attribute("apiUrl")+"/settings",
+          body:{"resofire-menu-control.labels":JSON.stringify(labels)}
+        }).catch(function(){});
+      }
+
+      // Apply saved order before the sort runs.
+      if(menuOrder){
+        var base=menuOrder.length+200;
+        menuOrder.forEach(function(key,index){
+          if(items.has(key)){items.setPriority(key,base-index);}
+        });
+      }
+
       items.toArray=origToArray;
       return origToArray(keepPrimitives);
     };
