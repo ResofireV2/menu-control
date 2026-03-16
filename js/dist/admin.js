@@ -37,6 +37,13 @@ var MenuControlPage=function(Base){
     this.stickyNav=Stream()(rawSticky==="1"||rawSticky===true);
     this._savedSticky=this.stickyNav();
 
+    // Custom icons — admin-overridden FA class strings per key
+    var rawCustomIcons=app().data.settings["resofire-menu-control.custom-icons"];
+    var customIconsObj={};
+    try{customIconsObj=rawCustomIcons?JSON.parse(rawCustomIcons):{}}catch(e){}
+    this.customIcons=Stream()(customIconsObj);
+    this._savedCustomIcons=JSON.stringify(customIconsObj);
+
     // Drag state
     this._draggingKey=null;   // key currently being dragged
     this._baseOrder=null;     // snapshot of orderedKeys at dragstart
@@ -57,9 +64,23 @@ var MenuControlPage=function(Base){
   p._label=function(key){return this._labels[key]||key;};
   p._icon=function(key){return this._icons[key]||null;};
 
+  // Returns the custom icon for key if set, otherwise the discovered icon
+  p._effectiveIcon=function(key){
+    var ci=this.customIcons();
+    return (ci[key]&&ci[key].trim()) ? ci[key].trim() : this._icon(key);
+  };
+  p._setCustomIcon=function(key,val){
+    var ci=Object.assign({},this.customIcons());
+    if(val&&val.trim()){ci[key]=val.trim();}
+    else{delete ci[key];}
+    this.customIcons(ci);
+    m.redraw();
+  };
+
   p.changed=function(){
     if(this.flipNav()!==this._savedFlip)return true;
     if(this.stickyNav()!==this._savedSticky)return true;
+    if(JSON.stringify(this.customIcons())!==this._savedCustomIcons)return true;
     var a=this.orderedKeys,b=this._savedOrder;
     if(a.length!==b.length)return true;
     for(var i=0;i<a.length;i++){if(a[i]!==b[i])return true;}
@@ -70,7 +91,8 @@ var MenuControlPage=function(Base){
     return{
       "resofire-menu-control.order":JSON.stringify(this.orderedKeys),
       "resofire-menu-control.flip":this.flipNav()?"1":"0",
-      "resofire-menu-control.sticky":this.stickyNav()?"1":"0"
+      "resofire-menu-control.sticky":this.stickyNav()?"1":"0",
+      "resofire-menu-control.custom-icons":JSON.stringify(this.customIcons())
     };
   };
 
@@ -89,6 +111,7 @@ var MenuControlPage=function(Base){
         self._savedOrder=self.orderedKeys.slice();
         self._savedFlip=self.flipNav();
         self._savedSticky=self.stickyNav();
+        self._savedCustomIcons=JSON.stringify(self.customIcons());
       })
       .catch(function(){})
       .then(function(){self.loading=false;m.redraw();});
@@ -206,12 +229,22 @@ var MenuControlPage=function(Base){
       ondragend:function(){self._onDragEnd();}
     },
       m("span",{className:"MenuControlPage-handle","aria-hidden":"true"},"\u2837"),
-      // Font Awesome icon from the forum nav
-      icon
-        ?m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},
-            m("i",{className:icon+" fa-fw"}))
-        :null,
+      m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},
+          self._effectiveIcon(key)
+            ?m("i",{className:self._effectiveIcon(key)+" fa-fw"})
+            :m("i",{className:"fas fa-question fa-fw",style:"opacity:0.2"})),
       m("span",{className:"MenuControlPage-label"},self._label(key)),
+      m("input",{
+        className:"FormControl MenuControlPage-iconInput",
+        type:"text",
+        placeholder:self._icon(key)||"fas fa-...",
+        value:self.customIcons()[key]||"",
+        title:app().translator.trans("resofire-menu-control.admin.nav_order.icon_input_title"),
+        oninput:function(e){self._setCustomIcon(key,e.target.value);},
+        // Stop drag events so typing doesn't trigger drag
+        ondragstart:function(e){e.stopPropagation();},
+        onmousedown:function(e){e.stopPropagation();}
+      }),
       m("span",{className:"MenuControlPage-arrows"},
         Button().component({
           className:"Button Button--icon Button--flat",

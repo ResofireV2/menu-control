@@ -34,6 +34,7 @@ app().initializers.add("resofire-menu-control",function(){
       }catch(e){}
     }
     this._menuFlip=!!app().forum.attribute("menuControlFlip");
+    this._customIcons=app().forum.attribute("menuControlCustomIcons")||{};
   });
 
   _extend.extend(IndexPage().prototype,"navItems",function(items){
@@ -67,6 +68,19 @@ app().initializers.add("resofire-menu-control",function(){
             "resofire-menu-control.icons":JSON.stringify(icons)
           }
         }).catch(function(){});
+      }
+
+      // Apply custom icon overrides — replace vnode.attrs.icon before render
+      var customIcons=self._customIcons;
+      if(customIcons){
+        Object.keys(customIcons).forEach(function(key){
+          if(items.has(key)){
+            try{
+              var vnode=items.get(key);
+              if(vnode&&vnode.attrs){vnode.attrs.icon=customIcons[key];}
+            }catch(e){}
+          }
+        });
       }
 
       if(menuOrder&&menuOrder.length>0){
