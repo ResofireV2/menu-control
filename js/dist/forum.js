@@ -35,6 +35,9 @@ app().initializers.add("resofire-menu-control",function(){
       }catch(e){}
     }
     this._menuFlip=!!app().forum.attribute("menuControlFlip");
+    var rawHidden=app().forum.attribute("menuControlGuestHidden");
+    this._guestHidden=(Array.isArray(rawHidden)&&rawHidden.length>0&&!app().session.user)
+      ? rawHidden : null;
   });
 
   _extend.extend(IndexPage().prototype,"navItems",function(items){
@@ -71,6 +74,14 @@ app().initializers.add("resofire-menu-control",function(){
             "resofire-menu-control.icons":JSON.stringify(icons)
           }
         }).catch(function(){});
+      }
+
+      // Remove items hidden from guests (only when not logged in)
+      var guestHidden=self._guestHidden;
+      if(guestHidden){
+        guestHidden.forEach(function(key){
+          if(items.has(key)){items.remove(key);}
+        });
       }
 
       if(menuOrder&&menuOrder.length>0){
