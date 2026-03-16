@@ -8,7 +8,6 @@ const _extractText=flarum.core.compat["utils/extractText"];var extractText=t.n(_
 var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
 
-// Fire the labels POST at most once per page load (admin only).
 var labelsSynced=false;
 
 app().initializers.add("resofire-menu-control",function(){
@@ -24,19 +23,18 @@ app().initializers.add("resofire-menu-control",function(){
         }
       }catch(e){}
     }
+    this._menuFlip=!!app().forum.attribute("menuControlFlip");
   });
 
   _extend.extend(IndexPage().prototype,"navItems",function(items){
     var self=this;
     var menuOrder=self._menuOrder;
+    var menuFlip=self._menuFlip;
 
     var origToArray=items.toArray.bind(items);
     items.toArray=function(keepPrimitives){
 
-      // Save real display labels to DB (admin only, once per page load).
-      // At toArray() time every extension has added its items, so extractText()
-      // gives us the actual rendered label text (e.g. "Pick'em", "Awards").
-      // PHP uses the raw key as a fallback label; this POST provides the real ones.
+      // Save real display labels (admin only, once per page load)
       if(!labelsSynced&&app().session.user&&app().session.user.isAdmin()){
         labelsSynced=true;
         var labels={};
@@ -54,8 +52,19 @@ app().initializers.add("resofire-menu-control",function(){
         }).catch(function(){});
       }
 
-      // Apply saved order before the sort runs.
-      if(menuOrder){
+      // Apply saved order OR flip, not both at the same time.
+      // Flip inverts all priorities so tags appear above nav items.
+      // The separator gets pinned at 0 to always sit between the two groups.
+      if(menuFlip){
+        Object.keys(items.toObject()).forEach(function(k){
+          if(k==="separator"){
+            // Pin separator at 0 — always between the two groups regardless of flip
+            items.setPriority(k,0);
+          } else {
+            items.setPriority(k,-items.getPriority(k));
+          }
+        });
+      } else if(menuOrder){
         var base=menuOrder.length+200;
         menuOrder.forEach(function(key,index){
           if(items.has(key)){items.setPriority(key,base-index);}

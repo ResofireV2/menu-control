@@ -14,15 +14,14 @@ return [
 
     new Extend\Locales(__DIR__ . '/resources/locale'),
 
-    // Serialize the saved order to the forum payload for the forum JS to use.
     (new Extend\Settings())
         ->serializeToForum('menuControlOrder', 'resofire-menu-control.order', function ($value) {
             return $value ?: null;
+        })
+        ->serializeToForum('menuControlFlip', 'resofire-menu-control.flip', function ($value) {
+            return (bool) $value;
         }),
 
-    // Serialize the PHP-computed nav key list to the forum/admin API payload.
-    // NavItemsSerializer reads extensions_enabled from the DB and maps each enabled
-    // extension ID to its known navItems key. This is authoritative — no JS timing issues.
     (new Extend\ApiSerializer(ForumSerializer::class))
         ->attributes(NavItemsSerializer::class),
 ];

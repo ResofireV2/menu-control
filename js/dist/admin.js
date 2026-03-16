@@ -5,6 +5,8 @@ function _(t,o){t.prototype=Object.create(o.prototype),t.prototype.constructor=t
 
 const _app=flarum.core.compat["admin/app"];var app=t.n(_app);
 const _Button=flarum.core.compat["common/components/Button"];var Button=t.n(_Button);
+const _Switch=flarum.core.compat["common/components/Switch"];var Switch=t.n(_Switch);
+const _Stream=flarum.core.compat["common/utils/Stream"];var Stream=t.n(_Stream);
 const _ExtensionPage=flarum.core.compat["components/ExtensionPage"];var ExtensionPage=t.n(_ExtensionPage);
 const _saveSettings=flarum.core.compat["admin/utils/saveSettings"];var saveSettings=t.n(_saveSettings);
 
@@ -24,8 +26,11 @@ var MenuControlPage=function(Base){
     this.dragOverKey=null;
     this._labels=app().forum.attribute("menuControlNavLabels")||{};
     this.orderedKeys=this._buildInitialOrder();
-    // snapshot of order at page load — used by changed() to detect modifications
     this._savedOrder=this.orderedKeys.slice();
+    // Flip toggle — Stream(bool) matching the reactions pattern
+    var rawFlip=app().data.settings["resofire-menu-control.flip"];
+    this.flipNav=Stream()(rawFlip==="1"||rawFlip===true);
+    this._savedFlip=this.flipNav();
   };
 
   p._buildInitialOrder=function(){
@@ -42,21 +47,22 @@ var MenuControlPage=function(Base){
 
   p._label=function(key){return this._labels[key]||key;};
 
-  // Matches exactly after user reorders — button is muted when nothing changed
   p.changed=function(){
-    var a=this.orderedKeys;
-    var b=this._savedOrder;
+    // Changed if order differs OR flip toggle differs from saved state
+    if(this.flipNav()!==this._savedFlip)return true;
+    var a=this.orderedKeys, b=this._savedOrder;
     if(a.length!==b.length)return true;
     for(var i=0;i<a.length;i++){if(a[i]!==b[i])return true;}
     return false;
   };
 
   p.prepareSubmissionData=function(){
-    return{"resofire-menu-control.order":JSON.stringify(this.orderedKeys)};
+    return{
+      "resofire-menu-control.order":JSON.stringify(this.orderedKeys),
+      "resofire-menu-control.flip":this.flipNav()?"1":"0"
+    };
   };
 
-  // Exact onsubmit pattern from reactions extension:
-  // F.preventDefault() + saveSettings(data) + alerts.show on success
   p.onsubmit=function(F){
     var self=this;
     F.preventDefault();
@@ -69,8 +75,8 @@ var MenuControlPage=function(Base){
           {type:"success"},
           app().translator.trans("core.admin.settings.saved_message")
         );
-        // Update snapshot so button goes back to muted state
         self._savedOrder=self.orderedKeys.slice();
+        self._savedFlip=self.flipNav();
       })
       .catch(function(){})
       .then(function(){
@@ -82,14 +88,20 @@ var MenuControlPage=function(Base){
   p.content=function(){
     var self=this;
     var keys=this.orderedKeys;
-    // Wrap in <form onsubmit> — the proven pattern from reactions extension.
-    // Button uses type:"submit" via .component() so the form submit fires,
-    // which is the only reliable trigger for saveSettings in Flarum admin.
     return m("div",{className:"MenuControlPage"},
       m("div",{className:"container"},
         m("p",{className:"helpText"},
           app().translator.trans("resofire-menu-control.admin.nav_order.description")),
         m("form",{onsubmit:this.onsubmit.bind(this)},
+          // Flip toggle — same Switch.component pattern as reactions extension
+          m("div",{className:"Form-group"},
+            Switch().component({
+              state:self.flipNav(),
+              onchange:function(val){self.flipNav(val);m.redraw();}
+            },app().translator.trans("resofire-menu-control.admin.nav_order.flip_label"))
+          ),
+          m("p",{className:"helpText",style:"margin-top:-8px;margin-bottom:16px;"},
+            app().translator.trans("resofire-menu-control.admin.nav_order.flip_help")),
           keys.length===0
             ?m("p",{className:"MenuControlPage-empty helpText"},
                 app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
