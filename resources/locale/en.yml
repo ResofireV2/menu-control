@@ -12,5 +12,3 @@ resofire-menu-control:
       flip_help: "When enabled, tag links appear at the top of the sidebar and navigation items (All Discussions, Following, etc.) appear below. Desktop only — on mobile and tablet the navigation is displayed horizontally and this setting has no effect."
       sticky_label: "Sticky sidebar (sidebar stays visible while scrolling)"
       sticky_help: "When enabled, the sidebar including the Start a Discussion button stays fixed at the top of the viewport as you scroll down."
-      hide_guests: "Visible to guests (click to hide)"
-      show_guests: "Hidden from guests (click to show)"

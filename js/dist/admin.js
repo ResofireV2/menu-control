@@ -37,13 +37,6 @@ var MenuControlPage=function(Base){
     this.stickyNav=Stream()(rawSticky==="1"||rawSticky===true);
     this._savedSticky=this.stickyNav();
 
-    // Guest-hidden set — keys that are hidden from logged-out users
-    var rawHidden=app().data.settings["resofire-menu-control.guest-hidden"];
-    var hiddenArr=[];
-    try{hiddenArr=rawHidden?JSON.parse(rawHidden):[]}catch(e){}
-    this.guestHidden=Stream()(hiddenArr);
-    this._savedHidden=JSON.stringify(hiddenArr);
-
     // Drag state
     this._draggingKey=null;   // key currently being dragged
     this._baseOrder=null;     // snapshot of orderedKeys at dragstart
@@ -64,22 +57,9 @@ var MenuControlPage=function(Base){
   p._label=function(key){return this._labels[key]||key;};
   p._icon=function(key){return this._icons[key]||null;};
 
-  p._isGuestHidden=function(key){
-    return this.guestHidden().indexOf(key)!==-1;
-  };
-  p._toggleGuestHidden=function(key){
-    var arr=this.guestHidden().slice();
-    var idx=arr.indexOf(key);
-    if(idx===-1)arr.push(key);
-    else arr.splice(idx,1);
-    this.guestHidden(arr);
-    m.redraw();
-  };
-
   p.changed=function(){
     if(this.flipNav()!==this._savedFlip)return true;
     if(this.stickyNav()!==this._savedSticky)return true;
-    if(JSON.stringify(this.guestHidden())!==this._savedHidden)return true;
     var a=this.orderedKeys,b=this._savedOrder;
     if(a.length!==b.length)return true;
     for(var i=0;i<a.length;i++){if(a[i]!==b[i])return true;}
@@ -90,8 +70,7 @@ var MenuControlPage=function(Base){
     return{
       "resofire-menu-control.order":JSON.stringify(this.orderedKeys),
       "resofire-menu-control.flip":this.flipNav()?"1":"0",
-      "resofire-menu-control.sticky":this.stickyNav()?"1":"0",
-      "resofire-menu-control.guest-hidden":JSON.stringify(this.guestHidden())
+      "resofire-menu-control.sticky":this.stickyNav()?"1":"0"
     };
   };
 
@@ -110,7 +89,6 @@ var MenuControlPage=function(Base){
         self._savedOrder=self.orderedKeys.slice();
         self._savedFlip=self.flipNav();
         self._savedSticky=self.stickyNav();
-        self._savedHidden=JSON.stringify(self.guestHidden());
       })
       .catch(function(){})
       .then(function(){self.loading=false;m.redraw();});
@@ -234,17 +212,6 @@ var MenuControlPage=function(Base){
             m("i",{className:icon+" fa-fw"}))
         :null,
       m("span",{className:"MenuControlPage-label"},self._label(key)),
-      key!=="allDiscussions"
-        ?Button().component({
-            className:"Button Button--icon Button--flat MenuControlPage-visibility"
-              +(self._isGuestHidden(key)?" is-guest-hidden":""),
-            icon:self._isGuestHidden(key)?"fas fa-eye-slash":"fas fa-eye",
-            title:self._isGuestHidden(key)
-              ?app().translator.trans("resofire-menu-control.admin.nav_order.show_guests")
-              :app().translator.trans("resofire-menu-control.admin.nav_order.hide_guests"),
-            onclick:function(){self._toggleGuestHidden(key);}
-          })
-        :null,
       m("span",{className:"MenuControlPage-arrows"},
         Button().component({
           className:"Button Button--icon Button--flat",

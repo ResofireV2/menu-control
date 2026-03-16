@@ -12,7 +12,6 @@ var labelsSynced=false;
 
 app().initializers.add("resofire-menu-control",function(){
 
-  // Toggle body class for sticky sidebar — cleaner than mutating view() vnode attrs.
   _extend.extend(IndexPage().prototype,"oninit",function(){
     if(app().forum.attribute("menuControlSticky")){
       document.body.classList.add("resofire-sticky-nav");
@@ -35,9 +34,6 @@ app().initializers.add("resofire-menu-control",function(){
       }catch(e){}
     }
     this._menuFlip=!!app().forum.attribute("menuControlFlip");
-    var rawHidden=app().forum.attribute("menuControlGuestHidden");
-    this._guestHidden=(Array.isArray(rawHidden)&&rawHidden.length>0&&!app().session.user)
-      ? rawHidden : null;
   });
 
   _extend.extend(IndexPage().prototype,"navItems",function(items){
@@ -48,8 +44,6 @@ app().initializers.add("resofire-menu-control",function(){
     var origToArray=items.toArray.bind(items);
     items.toArray=function(keepPrimitives){
 
-      // Save real labels AND icons (admin only, once per page load).
-      // icons: read vnode.attrs.icon from each nav item vnode.
       if(!labelsSynced&&app().session.user&&app().session.user.isAdmin()){
         labelsSynced=true;
         var labels={};
@@ -60,7 +54,6 @@ app().initializers.add("resofire-menu-control",function(){
             var vnode=items.get(k);
             var txt=extractText()(vnode);
             if(txt&&txt.trim())labels[k]=txt.trim();
-            // Icon is in vnode.attrs.icon (e.g. "fas fa-star", "far fa-comments")
             if(vnode&&vnode.attrs&&vnode.attrs.icon){
               icons[k]=vnode.attrs.icon;
             }
@@ -76,17 +69,6 @@ app().initializers.add("resofire-menu-control",function(){
         }).catch(function(){});
       }
 
-      // Remove items hidden from guests (only when not logged in)
-      var guestHidden=self._guestHidden;
-      if(guestHidden){
-        console.log("[MC] guest-hidden keys:",guestHidden,"items keys:",Object.keys(items.toObject()));
-        guestHidden.forEach(function(key){
-          console.log("[MC] trying remove:",key,"has:",items.has(key));
-          if(items.has(key)){items.remove(key);}
-        });
-        console.log("[MC] after remove:",Object.keys(items.toObject()));
-      }
-
       if(menuOrder&&menuOrder.length>0){
         var base=menuOrder.length+200;
         menuOrder.forEach(function(key,index){
@@ -94,9 +76,6 @@ app().initializers.add("resofire-menu-control",function(){
         });
       }
 
-      // Only apply flip on desktop — on mobile/tablet the nav renders as a
-      // horizontal SelectDropdown where flip doesn't make sense.
-      // app().screen() returns 'phone'|'tablet'|'desktop'|'desktop-hd'
       var isDesktop=app().screen()==="desktop"||app().screen()==="desktop-hd";
       if(menuFlip&&isDesktop){
         var allKeys=Object.keys(items.toObject());
@@ -116,8 +95,6 @@ app().initializers.add("resofire-menu-control",function(){
       return origToArray(keepPrimitives);
     };
   });
-
-
 
 });
 
