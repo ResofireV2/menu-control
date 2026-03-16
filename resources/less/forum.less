@@ -2,15 +2,12 @@
 
 @keyframes mc-highlight-pulse {
   0% {
-    background: var(--mc-highlight-bg, @control-bg);
     box-shadow: 0 0 6px 2px var(--mc-highlight-color, @control-bg);
   }
   50% {
-    background: var(--mc-highlight-bg, @control-bg);
     box-shadow: 0 0 14px 5px var(--mc-highlight-color, @control-bg);
   }
   100% {
-    background: var(--mc-highlight-bg, @control-bg);
     box-shadow: 0 0 6px 2px var(--mc-highlight-color, @control-bg);
   }
 }
@@ -24,7 +21,6 @@
   }
 
   .sideNav .Dropdown--select .Dropdown-menu > li.MenuControl-highlighted {
-    animation: mc-highlight-pulse 2s ease-in-out infinite;
 
     > a {
       color: var(--primary-color) !important;
@@ -35,6 +31,7 @@
       padding-left: 35px !important;
       margin-left: -5px;
       margin-right: -5px;
+      animation: mc-highlight-pulse 2s ease-in-out infinite;
 
       .Button-icon {
         margin-left: -25px;
