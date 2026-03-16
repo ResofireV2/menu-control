@@ -44,9 +44,7 @@ var MenuControlPage=function(Base){
     this.customIcons=Stream()(customIconsObj);
     this._savedCustomIcons=JSON.stringify(customIconsObj);
 
-    // Drag state
-    this._draggingKey=null;   // key currently being dragged
-    this._baseOrder=null;     // snapshot of orderedKeys at dragstart
+
   };
 
   p._buildInitialOrder=function(){
@@ -117,54 +115,6 @@ var MenuControlPage=function(Base){
       .then(function(){self.loading=false;m.redraw();});
   };
 
-  // ── Drag helpers ──────────────────────────────────────────────────────────
-  // Live reorder: compute preview array by inserting draggingKey at toKey position
-  p._previewOrder=function(fromKey,toKey){
-    var arr=this._baseOrder.slice();
-    var fi=arr.indexOf(fromKey);
-    if(fi===-1)return arr;
-    arr.splice(fi,1);
-    var ti=arr.indexOf(toKey);
-    if(ti===-1)return arr;
-    arr.splice(ti,0,fromKey);
-    return arr;
-  };
-
-  p._onDragStart=function(key,e){
-    this._draggingKey=key;
-    this._baseOrder=this.orderedKeys.slice();
-    e.dataTransfer.effectAllowed="move";
-    e.dataTransfer.setData("text/plain",key);
-  };
-
-  p._onDragOver=function(key,e){
-    e.preventDefault();
-    e.dataTransfer.dropEffect="move";
-    if(this._draggingKey&&this._draggingKey!==key){
-      // Live reorder: show what drop would look like
-      this.orderedKeys=this._previewOrder(this._draggingKey,key);
-      m.redraw();
-    }
-  };
-
-  p._onDrop=function(key,e){
-    e.preventDefault();
-    // orderedKeys already has the preview order — commit it
-    this._draggingKey=null;
-    this._baseOrder=null;
-    m.redraw();
-  };
-
-  p._onDragEnd=function(){
-    if(this._draggingKey){
-      // Drag cancelled (e.g. dropped outside) — restore base order
-      if(this._baseOrder)this.orderedKeys=this._baseOrder.slice();
-      this._draggingKey=null;
-      this._baseOrder=null;
-      m.redraw();
-    }
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
   p.content=function(){
     var self=this;
@@ -193,14 +143,7 @@ var MenuControlPage=function(Base){
           keys.length===0
             ?m("p",{className:"MenuControlPage-empty helpText"},
                 app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
-            :m("ul",{className:"MenuControlPage-list",
-                // Reset drag state if mouse leaves the list entirely
-                ondragleave:function(e){
-                  if(!e.currentTarget.contains(e.relatedTarget)&&self._draggingKey){
-                    self.orderedKeys=self._baseOrder.slice();
-                    m.redraw();
-                  }
-                }},
+            :m("ul",{className:"MenuControlPage-list"},
                 keys.map(function(key,index){return self._renderItem(key,index,keys);})),
           Button().component({
             type:"submit",
@@ -215,19 +158,9 @@ var MenuControlPage=function(Base){
 
   p._renderItem=function(key,index,keys){
     var self=this;
-    var isDragging=this._draggingKey===key;
-    var cls="MenuControlPage-item"+(isDragging?" is-dragging":"");
     var icon=this._icon(key);
 
-    return m("li",{
-      key:key,
-      className:cls,
-      draggable:"true",
-      ondragstart:function(e){self._onDragStart(key,e);},
-      ondragover:function(e){self._onDragOver(key,e);},
-      ondrop:function(e){self._onDrop(key,e);},
-      ondragend:function(){self._onDragEnd();}
-    },
+    return m("li",{key:key,className:"MenuControlPage-item"},
       m("span",{className:"MenuControlPage-handle","aria-hidden":"true"},"\u2837"),
       m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},
           self._effectiveIcon(key)
@@ -241,9 +174,7 @@ var MenuControlPage=function(Base){
         value:self.customIcons()[key]||"",
         title:app().translator.trans("resofire-menu-control.admin.nav_order.icon_input_title"),
         oninput:function(e){self._setCustomIcon(key,e.target.value);},
-        // Stop drag events so typing doesn't trigger drag
-        ondragstart:function(e){e.stopPropagation();},
-        onmousedown:function(e){e.stopPropagation();}
+
       }),
       m("span",{className:"MenuControlPage-arrows"},
         Button().component({

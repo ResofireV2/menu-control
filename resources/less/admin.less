@@ -17,33 +17,14 @@
     background: var(--control-bg);
     border: 2px solid transparent;
     border-radius: 6px;
-    cursor: grab;
-    transition: background 0.15s, border-color 0.15s, opacity 0.15s, transform 0.1s;
+    transition: background 0.15s;
     user-select: none;
 
     &:hover {
       background: var(--control-bg-active);
     }
 
-    &.is-dragging {
-      opacity: 0.4;
-      cursor: grabbing;
-    }
 
-    // is-dragging item is semi-transparent to show where it came from
-    // No is-dragover needed — live reorder shows the target position directly
-  }
-
-  &-handle {
-    font-size: 1.2rem;
-    color: var(--muted-more-color);
-    cursor: grab;
-    line-height: 1;
-    flex-shrink: 0;
-
-    &:active {
-      cursor: grabbing;
-    }
   }
 
   &-icon {
