@@ -12,6 +12,17 @@ var labelsSynced=false;
 
 app().initializers.add("resofire-menu-control",function(){
 
+  // Toggle body class for sticky sidebar — cleaner than mutating view() vnode attrs.
+  _extend.extend(IndexPage().prototype,"oninit",function(){
+    if(app().forum.attribute("menuControlSticky")){
+      document.body.classList.add("resofire-sticky-nav");
+    }
+  });
+
+  _extend.extend(IndexPage().prototype,"onremove",function(){
+    document.body.classList.remove("resofire-sticky-nav");
+  });
+
   _extend.extend(IndexPage().prototype,"oninit",function(){
     var rawOrder=app().forum.attribute("menuControlOrder");
     this._menuOrder=null;
@@ -92,12 +103,7 @@ app().initializers.add("resofire-menu-control",function(){
     };
   });
 
-  _extend.extend(IndexPage().prototype,"view",function(vnode){
-    if(app().forum.attribute("menuControlSticky")){
-      vnode.attrs=vnode.attrs||{};
-      vnode.attrs.className=(vnode.attrs.className||"")+" IndexPage--stickyNav";
-    }
-  });
+
 
 });
 
