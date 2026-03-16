@@ -176,11 +176,13 @@ var MenuControlPage=function(Base){
               app().translator.trans("resofire-menu-control.admin.nav_order.highlight_color_label")),
             m("p",{className:"helpText"},
               app().translator.trans("resofire-menu-control.admin.nav_order.highlight_color_help")),
-            ColorPreviewInput().component({
-              value:self.highlightColor()||"",
-              placeholder:"#536F90",
-              oninput:function(e){self.highlightColor(e.target.value);m.redraw();}
-            })
+            m("div",{style:"max-width:200px"},
+              ColorPreviewInput().component({
+                value:self.highlightColor()||"",
+                placeholder:"#536F90",
+                oninput:function(e){self.highlightColor(e.target.value);m.redraw();}
+              })
+            )
           ),
           keys.length===0
             ?m("p",{className:"MenuControlPage-empty helpText"},
