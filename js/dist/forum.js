@@ -124,8 +124,7 @@ app().initializers.add("resofire-menu-control",function(){
         });
       }
 
-      var isDesktop=app().screen()==="desktop"||app().screen()==="desktop-hd";
-      if(menuFlip&&isDesktop){
+      if(menuFlip){
         var allKeys=Object.keys(items.toObject());
         var navKeys=[];
         allKeys.forEach(function(k){

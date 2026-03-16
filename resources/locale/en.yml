@@ -14,6 +14,6 @@ resofire-menu-control:
       remove_highlight: "Remove highlight"
       move_down: "Move down"
       flip_label: "Flip navigation (show tags above menu items)"
-      flip_help: "When enabled, tag links appear at the top of the sidebar and navigation items (All Discussions, Following, etc.) appear below. Desktop only — on mobile and tablet the navigation is displayed horizontally and this setting has no effect."
+      flip_help: "When enabled, tag links appear at the top of the sidebar and navigation items (All Discussions, Following, etc.) appear below."
       sticky_label: "Sticky sidebar (sidebar stays visible while scrolling)"
       sticky_help: "When enabled, the sidebar including the Start a Discussion button stays fixed at the top of the viewport as you scroll down."
