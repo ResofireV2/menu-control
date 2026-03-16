@@ -8,10 +8,11 @@ var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
 
 app().initializers.add("resofire-menu-control",function(){
+  console.log("[MenuControl] initializer running");
 
-  // Cache parsed order once per IndexPage mount — no JSON.parse on each redraw.
   _extend.extend(IndexPage().prototype,"oninit",function(){
     var rawOrder=app().forum.attribute("menuControlOrder");
+    console.log("[MenuControl] oninit — menuControlOrder raw:", rawOrder);
     this._menuOrder=null;
     if(rawOrder){
       try{
@@ -19,18 +20,29 @@ app().initializers.add("resofire-menu-control",function(){
         if(Array.isArray(parsed)&&parsed.length>0){
           this._menuOrder=parsed.filter(function(k){return!isTagEntry(k);});
         }
-      }catch(e){}
+      }catch(e){console.error("[MenuControl] JSON.parse error:",e);}
     }
+    console.log("[MenuControl] oninit — _menuOrder:", this._menuOrder);
   });
 
-  // Apply saved order. extend fires last (resofire > all other ext IDs alphabetically)
-  // so all other extensions' items are already in `items` when our callback runs.
   _extend.extend(IndexPage().prototype,"navItems",function(items){
+    var allKeys=Object.keys(items.toObject());
+    console.log("[MenuControl] navItems — all item keys:", allKeys);
+    console.log("[MenuControl] navItems — _menuOrder:", this._menuOrder);
+
     var menuOrder=this._menuOrder;
-    if(!menuOrder)return;
+    if(!menuOrder){
+      console.log("[MenuControl] navItems — no order saved, skipping");
+      return;
+    }
     var base=menuOrder.length+200;
     menuOrder.forEach(function(key,index){
-      if(items.has(key)){items.setPriority(key,base-index);}
+      if(items.has(key)){
+        items.setPriority(key,base-index);
+        console.log("[MenuControl] setPriority",key,"→",(base-index));
+      } else {
+        console.log("[MenuControl] key not found in items:",key);
+      }
     });
   });
 
