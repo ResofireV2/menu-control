@@ -6,7 +6,7 @@ function _(t,o){t.prototype=Object.create(o.prototype),t.prototype.constructor=t
 const _app=flarum.core.compat["admin/app"];var app=t.n(_app);
 const _Button=flarum.core.compat["common/components/Button"];var Button=t.n(_Button);
 const _ExtensionPage=flarum.core.compat["components/ExtensionPage"];var ExtensionPage=t.n(_ExtensionPage);
-const _saveSettings=flarum.core.compat["utils/saveSettings"];var saveSettings=t.n(_saveSettings);
+const _saveSettings=flarum.core.compat["admin/utils/saveSettings"];var saveSettings=t.n(_saveSettings);
 
 var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
@@ -18,58 +18,89 @@ var MenuControlPage=function(Base){
 
   p.oninit=function(vnode){
     Base.prototype.oninit.call(this,vnode);
-    this.saving=false;
-    this.saveSuccess=false;
+    this.loading=false;
+    this.successAlert=null;
     this.draggingKey=null;
     this.dragOverKey=null;
-    // PHP-computed labels map: { key: "Display Label" }
     this._labels=app().forum.attribute("menuControlNavLabels")||{};
     this.orderedKeys=this._buildInitialOrder();
+    // snapshot of order at page load — used by changed() to detect modifications
+    this._savedOrder=this.orderedKeys.slice();
   };
 
   p._buildInitialOrder=function(){
-    // PHP-authoritative key list from extensions_enabled DB query
     var phpKeys=(app().forum.attribute("menuControlNavKeys")||[])
       .filter(function(k){return!isTagEntry(k);});
-
     var rawOrder=app().data.settings["resofire-menu-control.order"]||null;
     var savedOrder=[];
     try{savedOrder=rawOrder?JSON.parse(rawOrder):[]}catch(e){}
     savedOrder=savedOrder.filter(function(k){return!isTagEntry(k);});
-
-    // Preserve saved arrangement, then append any new phpKeys not yet in it
     var merged=savedOrder.filter(function(k){return phpKeys.indexOf(k)!==-1;});
     phpKeys.forEach(function(k){if(merged.indexOf(k)===-1)merged.push(k);});
     return merged;
   };
 
-  p._label=function(key){
-    return this._labels[key]||key;
+  p._label=function(key){return this._labels[key]||key;};
+
+  // Matches exactly after user reorders — button is muted when nothing changed
+  p.changed=function(){
+    var a=this.orderedKeys;
+    var b=this._savedOrder;
+    if(a.length!==b.length)return true;
+    for(var i=0;i<a.length;i++){if(a[i]!==b[i])return true;}
+    return false;
+  };
+
+  p.prepareSubmissionData=function(){
+    return{"resofire-menu-control.order":JSON.stringify(this.orderedKeys)};
+  };
+
+  // Exact onsubmit pattern from reactions extension:
+  // F.preventDefault() + saveSettings(data) + alerts.show on success
+  p.onsubmit=function(F){
+    var self=this;
+    F.preventDefault();
+    if(this.loading)return;
+    this.loading=true;
+    app().alerts.dismiss(this.successAlert);
+    saveSettings()(this.prepareSubmissionData())
+      .then(function(){
+        self.successAlert=app().alerts.show(
+          {type:"success"},
+          app().translator.trans("core.admin.settings.saved_message")
+        );
+        // Update snapshot so button goes back to muted state
+        self._savedOrder=self.orderedKeys.slice();
+      })
+      .catch(function(){})
+      .then(function(){
+        self.loading=false;
+        m.redraw();
+      });
   };
 
   p.content=function(){
     var self=this;
     var keys=this.orderedKeys;
+    // Wrap in <form onsubmit> — the proven pattern from reactions extension.
+    // Button uses type:"submit" via .component() so the form submit fires,
+    // which is the only reliable trigger for saveSettings in Flarum admin.
     return m("div",{className:"MenuControlPage"},
       m("div",{className:"container"},
         m("p",{className:"helpText"},
           app().translator.trans("resofire-menu-control.admin.nav_order.description")),
-        keys.length===0
-          ?m("p",{className:"MenuControlPage-empty helpText"},
-              app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
-          :m("ul",{className:"MenuControlPage-list"},
-              keys.map(function(key,index){return self._renderItem(key,index,keys);})),
-        m("div",{className:"MenuControlPage-actions"},
-          m(Button(),{
+        m("form",{onsubmit:this.onsubmit.bind(this)},
+          keys.length===0
+            ?m("p",{className:"MenuControlPage-empty helpText"},
+                app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
+            :m("ul",{className:"MenuControlPage-list"},
+                keys.map(function(key,index){return self._renderItem(key,index,keys);})),
+          Button().component({
+            type:"submit",
             className:"Button Button--primary",
-            onclick:function(){self._save();},
-            loading:self.saving,
-            disabled:self.saving||keys.length===0
-          },app().translator.trans("resofire-menu-control.admin.nav_order.save_button")),
-          self.saveSuccess
-            ?m("span",{className:"MenuControlPage-success"},
-                "\u2713 "+app().translator.trans("resofire-menu-control.admin.nav_order.save_success"))
-            :null
+            loading:self.loading,
+            disabled:!self.changed()
+          },app().translator.trans("resofire-menu-control.admin.nav_order.save_button"))
         )
       )
     );
@@ -89,10 +120,10 @@ var MenuControlPage=function(Base){
       m("span",{className:"MenuControlPage-handle","aria-hidden":"true"},"\u2837"),
       m("span",{className:"MenuControlPage-label"},self._label(key)),
       m("span",{className:"MenuControlPage-arrows"},
-        m(Button(),{className:"Button Button--icon Button--flat",icon:"fas fa-arrow-up",
+        Button().component({className:"Button Button--icon Button--flat",icon:"fas fa-arrow-up",
           title:app().translator.trans("resofire-menu-control.admin.nav_order.move_up"),
           disabled:index===0,onclick:function(){self._moveUp(index);}}),
-        m(Button(),{className:"Button Button--icon Button--flat",icon:"fas fa-arrow-down",
+        Button().component({className:"Button Button--icon Button--flat",icon:"fas fa-arrow-down",
           title:app().translator.trans("resofire-menu-control.admin.nav_order.move_down"),
           disabled:index===keys.length-1,onclick:function(){self._moveDown(index);}})
       )
@@ -117,27 +148,6 @@ var MenuControlPage=function(Base){
     var arr=this.orderedKeys.slice();
     var tmp=arr[index];arr[index]=arr[index+1];arr[index+1]=tmp;
     this.orderedKeys=arr;m.redraw();
-  };
-
-  p._save=function(){
-    var self=this;
-    self.saving=true;self.saveSuccess=false;m.redraw();
-    var serialized=JSON.stringify(self.orderedKeys);
-    app().request({
-      method:"POST",
-      url:app().forum.attribute("apiUrl")+"/settings",
-      body:{"resofire-menu-control.order":serialized}
-    }).then(function(){
-      app().data.settings["resofire-menu-control.order"]=serialized;
-      self.saving=false;self.saveSuccess=true;m.redraw();
-      setTimeout(function(){self.saveSuccess=false;m.redraw();},3000);
-    }).catch(function(e){
-      self.saving=false;
-      // Show the error in an alert so we know exactly what failed
-      var msg=(e&&e.message)||(e&&JSON.stringify(e))||"Save failed";
-      alert("Menu Control save error: "+msg);
-      m.redraw();
-    });
   };
 
   return C;
