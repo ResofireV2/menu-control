@@ -161,7 +161,6 @@ var MenuControlPage=function(Base){
     var icon=this._icon(key);
 
     return m("li",{key:key,className:"MenuControlPage-item"},
-      m("span",{className:"MenuControlPage-handle","aria-hidden":"true"},"\u2837"),
       m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},
           self._effectiveIcon(key)
             ?m("i",{className:self._effectiveIcon(key)+" fa-fw"})
