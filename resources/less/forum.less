@@ -1,22 +1,20 @@
 // resofire/menu-control — Forum Styles
 
-// Sticky sidebar: desktop only, using Flarum's @desktop-up breakpoint variable.
-// On mobile/tablet the sidebar is horizontal and sticky doesn't apply.
 @media @desktop-up {
+
+  // Sticky sidebar
   body.resofire-sticky-nav .IndexPage-nav {
     position: sticky;
     top: 72px;
     align-self: flex-start;
   }
 
-// Highlighted nav item: persistent active-like styling using the forum primary color.
-// Only applied on desktop where the nav is expanded as a sidebar list.
-@media @desktop-up {
+  // Highlighted nav item — bold + primary color text + active background
   .sideNav .Dropdown-menu li.MenuControl-highlighted > a {
     color: var(--primary-color) !important;
     font-weight: bold;
-    background: fade(var(--primary-color), 10%) !important;
+    background: var(--control-bg-active) !important;
     border-radius: 4px;
   }
-}
+
 }
