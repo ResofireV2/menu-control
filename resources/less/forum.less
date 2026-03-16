@@ -8,10 +8,14 @@
     align-self: flex-start;
   }
 
-  .sideNav .Dropdown--select .Dropdown-menu > li.MenuControl-highlighted > a {
-    color: var(--primary-color) !important;
-    font-weight: bold;
-    box-shadow: inset 3px 0 0 var(--primary-color);
+  .sideNav .Dropdown--select .Dropdown-menu > li.MenuControl-highlighted {
+    border-left: 3px solid var(--primary-color);
+    margin-left: -3px;
+
+    > a {
+      color: var(--primary-color) !important;
+      font-weight: bold;
+    }
   }
 
 }
