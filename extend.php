@@ -10,7 +10,8 @@ return [
         ->css(__DIR__ . '/resources/less/admin.less'),
 
     (new Extend\Frontend('forum'))
-        ->js(__DIR__ . '/js/dist/forum.js'),
+        ->js(__DIR__ . '/js/dist/forum.js')
+        ->css(__DIR__ . '/resources/less/forum.less'),
 
     new Extend\Locales(__DIR__ . '/resources/locale'),
 
@@ -19,6 +20,9 @@ return [
             return $value ?: null;
         })
         ->serializeToForum('menuControlFlip', 'resofire-menu-control.flip', function ($value) {
+            return (bool) $value;
+        })
+        ->serializeToForum('menuControlSticky', 'resofire-menu-control.sticky', function ($value) {
             return (bool) $value;
         }),
 

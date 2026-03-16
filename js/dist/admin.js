@@ -31,6 +31,9 @@ var MenuControlPage=function(Base){
     var rawFlip=app().data.settings["resofire-menu-control.flip"];
     this.flipNav=Stream()(rawFlip==="1"||rawFlip===true);
     this._savedFlip=this.flipNav();
+    var rawSticky=app().data.settings["resofire-menu-control.sticky"];
+    this.stickyNav=Stream()(rawSticky==="1"||rawSticky===true);
+    this._savedSticky=this.stickyNav();
   };
 
   p._buildInitialOrder=function(){
@@ -50,6 +53,7 @@ var MenuControlPage=function(Base){
   p.changed=function(){
     // Changed if order differs OR flip toggle differs from saved state
     if(this.flipNav()!==this._savedFlip)return true;
+    if(this.stickyNav()!==this._savedSticky)return true;
     var a=this.orderedKeys, b=this._savedOrder;
     if(a.length!==b.length)return true;
     for(var i=0;i<a.length;i++){if(a[i]!==b[i])return true;}
@@ -59,7 +63,8 @@ var MenuControlPage=function(Base){
   p.prepareSubmissionData=function(){
     return{
       "resofire-menu-control.order":JSON.stringify(this.orderedKeys),
-      "resofire-menu-control.flip":this.flipNav()?"1":"0"
+      "resofire-menu-control.flip":this.flipNav()?"1":"0",
+      "resofire-menu-control.sticky":this.stickyNav()?"1":"0"
     };
   };
 
@@ -77,6 +82,7 @@ var MenuControlPage=function(Base){
         );
         self._savedOrder=self.orderedKeys.slice();
         self._savedFlip=self.flipNav();
+        self._savedSticky=self.stickyNav();
       })
       .catch(function(){})
       .then(function(){
@@ -102,6 +108,14 @@ var MenuControlPage=function(Base){
           ),
           m("p",{className:"helpText",style:"margin-top:-8px;margin-bottom:16px;"},
             app().translator.trans("resofire-menu-control.admin.nav_order.flip_help")),
+          m("div",{className:"Form-group"},
+            Switch().component({
+              state:self.stickyNav(),
+              onchange:function(val){self.stickyNav(val);m.redraw();}
+            },app().translator.trans("resofire-menu-control.admin.nav_order.sticky_label"))
+          ),
+          m("p",{className:"helpText",style:"margin-top:-8px;margin-bottom:16px;"},
+            app().translator.trans("resofire-menu-control.admin.nav_order.sticky_help")),
           keys.length===0
             ?m("p",{className:"MenuControlPage-empty helpText"},
                 app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))

@@ -12,6 +12,15 @@ var labelsSynced=false;
 
 app().initializers.add("resofire-menu-control",function(){
 
+  // Add sticky class to the IndexPage element when sticky is enabled.
+  // The CSS in forum.less targets .IndexPage--stickyNav .IndexPage-nav.
+  _extend.extend(IndexPage().prototype,"view",function(vnode){
+    if(app().forum.attribute("menuControlSticky")){
+      vnode.attrs=vnode.attrs||{};
+      vnode.attrs.className=(vnode.attrs.className||"")+" IndexPage--stickyNav";
+    }
+  });
+
   _extend.extend(IndexPage().prototype,"oninit",function(){
     var rawOrder=app().forum.attribute("menuControlOrder");
     this._menuOrder=null;
