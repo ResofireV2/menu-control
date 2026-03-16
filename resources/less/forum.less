@@ -16,12 +16,15 @@
 
   .sideNav .Dropdown--select .Dropdown-menu > li.MenuControl-highlighted {
     background: var(--mc-highlight-color, @control-bg);
-    border-radius: 4px;
     animation: mc-highlight-pulse 2s ease-in-out infinite;
 
     > a {
       color: var(--primary-color) !important;
       font-weight: bold;
+      background: transparent !important;
+    }
+
+    > a:hover {
       background: transparent !important;
     }
   }
