@@ -98,7 +98,6 @@ var MenuControlPage=function(Base){
     if(val&&val.trim()){ci[key]=val.trim();}
     else{delete ci[key];}
     this.customIcons(ci);
-    m.redraw();
   };
 
   p._isHighlighted=function(key){
@@ -229,7 +228,13 @@ var MenuControlPage=function(Base){
         placeholder:self._icon(key)||"fas fa-...",
         value:self.customIcons()[key]||"",
         title:app().translator.trans("resofire-menu-control.admin.nav_order.icon_input_title"),
-        oninput:function(e){self._setCustomIcon(key,e.target.value);},
+        oninput:function(e){
+          // Store raw value as-is so spaces are preserved while typing
+          var ci=Object.assign({},self.customIcons());
+          var v=e.target.value;
+          if(v){ci[key]=v;}else{delete ci[key];}
+          self.customIcons(ci);
+        },
 
       }),
       Button().component({
