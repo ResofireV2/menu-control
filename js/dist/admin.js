@@ -22,18 +22,24 @@ var MenuControlPage=function(Base){
     Base.prototype.oninit.call(this,vnode);
     this.loading=false;
     this.successAlert=null;
-    this.draggingKey=null;
-    this.dragOverKey=null;
     this._labels=app().forum.attribute("menuControlNavLabels")||{};
+    this._icons=app().forum.attribute("menuControlIcons")||{};
     this.orderedKeys=this._buildInitialOrder();
     this._savedOrder=this.orderedKeys.slice();
-    // Flip toggle — Stream(bool) matching the reactions pattern
+
+    // Flip toggle
     var rawFlip=app().data.settings["resofire-menu-control.flip"];
     this.flipNav=Stream()(rawFlip==="1"||rawFlip===true);
     this._savedFlip=this.flipNav();
+
+    // Sticky toggle
     var rawSticky=app().data.settings["resofire-menu-control.sticky"];
     this.stickyNav=Stream()(rawSticky==="1"||rawSticky===true);
     this._savedSticky=this.stickyNav();
+
+    // Drag state
+    this._draggingKey=null;   // key currently being dragged
+    this._baseOrder=null;     // snapshot of orderedKeys at dragstart
   };
 
   p._buildInitialOrder=function(){
@@ -49,12 +55,12 @@ var MenuControlPage=function(Base){
   };
 
   p._label=function(key){return this._labels[key]||key;};
+  p._icon=function(key){return this._icons[key]||null;};
 
   p.changed=function(){
-    // Changed if order differs OR flip toggle differs from saved state
     if(this.flipNav()!==this._savedFlip)return true;
     if(this.stickyNav()!==this._savedSticky)return true;
-    var a=this.orderedKeys, b=this._savedOrder;
+    var a=this.orderedKeys,b=this._savedOrder;
     if(a.length!==b.length)return true;
     for(var i=0;i<a.length;i++){if(a[i]!==b[i])return true;}
     return false;
@@ -85,12 +91,58 @@ var MenuControlPage=function(Base){
         self._savedSticky=self.stickyNav();
       })
       .catch(function(){})
-      .then(function(){
-        self.loading=false;
-        m.redraw();
-      });
+      .then(function(){self.loading=false;m.redraw();});
   };
 
+  // ── Drag helpers ──────────────────────────────────────────────────────────
+  // Live reorder: compute preview array by inserting draggingKey at toKey position
+  p._previewOrder=function(fromKey,toKey){
+    var arr=this._baseOrder.slice();
+    var fi=arr.indexOf(fromKey);
+    if(fi===-1)return arr;
+    arr.splice(fi,1);
+    var ti=arr.indexOf(toKey);
+    if(ti===-1)return arr;
+    arr.splice(ti,0,fromKey);
+    return arr;
+  };
+
+  p._onDragStart=function(key,e){
+    this._draggingKey=key;
+    this._baseOrder=this.orderedKeys.slice();
+    e.dataTransfer.effectAllowed="move";
+    e.dataTransfer.setData("text/plain",key);
+  };
+
+  p._onDragOver=function(key,e){
+    e.preventDefault();
+    e.dataTransfer.dropEffect="move";
+    if(this._draggingKey&&this._draggingKey!==key){
+      // Live reorder: show what drop would look like
+      this.orderedKeys=this._previewOrder(this._draggingKey,key);
+      m.redraw();
+    }
+  };
+
+  p._onDrop=function(key,e){
+    e.preventDefault();
+    // orderedKeys already has the preview order — commit it
+    this._draggingKey=null;
+    this._baseOrder=null;
+    m.redraw();
+  };
+
+  p._onDragEnd=function(){
+    if(this._draggingKey){
+      // Drag cancelled (e.g. dropped outside) — restore base order
+      if(this._baseOrder)this.orderedKeys=this._baseOrder.slice();
+      this._draggingKey=null;
+      this._baseOrder=null;
+      m.redraw();
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   p.content=function(){
     var self=this;
     var keys=this.orderedKeys;
@@ -99,7 +151,6 @@ var MenuControlPage=function(Base){
         m("p",{className:"helpText"},
           app().translator.trans("resofire-menu-control.admin.nav_order.description")),
         m("form",{onsubmit:this.onsubmit.bind(this)},
-          // Flip toggle — same Switch.component pattern as reactions extension
           m("div",{className:"Form-group"},
             Switch().component({
               state:self.flipNav(),
@@ -119,7 +170,14 @@ var MenuControlPage=function(Base){
           keys.length===0
             ?m("p",{className:"MenuControlPage-empty helpText"},
                 app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
-            :m("ul",{className:"MenuControlPage-list"},
+            :m("ul",{className:"MenuControlPage-list",
+                // Reset drag state if mouse leaves the list entirely
+                ondragleave:function(e){
+                  if(!e.currentTarget.contains(e.relatedTarget)&&self._draggingKey){
+                    self.orderedKeys=self._baseOrder.slice();
+                    m.redraw();
+                  }
+                }},
                 keys.map(function(key,index){return self._renderItem(key,index,keys);})),
           Button().component({
             type:"submit",
@@ -134,35 +192,45 @@ var MenuControlPage=function(Base){
 
   p._renderItem=function(key,index,keys){
     var self=this;
-    var isDragging=this.draggingKey===key;
-    var isDragOver=this.dragOverKey===key;
-    var cls="MenuControlPage-item"+(isDragging?" is-dragging":"")+(isDragOver?" is-dragover":"");
-    return m("li",{key:key,className:cls,draggable:"true",
-      ondragstart:function(e){self.draggingKey=key;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",key);},
-      ondragover:function(e){e.preventDefault();e.dataTransfer.dropEffect="move";if(self.dragOverKey!==key){self.dragOverKey=key;m.redraw();}},
-      ondragleave:function(e){if(!e.currentTarget.contains(e.relatedTarget)){self.dragOverKey=null;m.redraw();}},
-      ondrop:function(e){e.preventDefault();var fk=self.draggingKey;if(fk&&fk!==key)self._moveItem(fk,key);self.draggingKey=null;self.dragOverKey=null;},
-      ondragend:function(){self.draggingKey=null;self.dragOverKey=null;m.redraw();}},
+    var isDragging=this._draggingKey===key;
+    var cls="MenuControlPage-item"+(isDragging?" is-dragging":"");
+    var icon=this._icon(key);
+
+    return m("li",{
+      key:key,
+      className:cls,
+      draggable:"true",
+      ondragstart:function(e){self._onDragStart(key,e);},
+      ondragover:function(e){self._onDragOver(key,e);},
+      ondrop:function(e){self._onDrop(key,e);},
+      ondragend:function(){self._onDragEnd();}
+    },
       m("span",{className:"MenuControlPage-handle","aria-hidden":"true"},"\u2837"),
+      // Font Awesome icon from the forum nav
+      icon
+        ?m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},
+            m("i",{className:icon+" fa-fw"}))
+        :null,
       m("span",{className:"MenuControlPage-label"},self._label(key)),
       m("span",{className:"MenuControlPage-arrows"},
-        Button().component({className:"Button Button--icon Button--flat",icon:"fas fa-arrow-up",
+        Button().component({
+          className:"Button Button--icon Button--flat",
+          icon:"fas fa-arrow-up",
           title:app().translator.trans("resofire-menu-control.admin.nav_order.move_up"),
-          disabled:index===0,onclick:function(){self._moveUp(index);}}),
-        Button().component({className:"Button Button--icon Button--flat",icon:"fas fa-arrow-down",
+          disabled:index===0,
+          onclick:function(){self._moveUp(index);}
+        }),
+        Button().component({
+          className:"Button Button--icon Button--flat",
+          icon:"fas fa-arrow-down",
           title:app().translator.trans("resofire-menu-control.admin.nav_order.move_down"),
-          disabled:index===keys.length-1,onclick:function(){self._moveDown(index);}})
+          disabled:index===keys.length-1,
+          onclick:function(){self._moveDown(index);}
+        })
       )
     );
   };
 
-  p._moveItem=function(fromKey,toKey){
-    var arr=this.orderedKeys.slice();
-    var fi=arr.indexOf(fromKey),ti=arr.indexOf(toKey);
-    if(fi===-1||ti===-1)return;
-    arr.splice(fi,1);arr.splice(ti,0,fromKey);
-    this.orderedKeys=arr;m.redraw();
-  };
   p._moveUp=function(index){
     if(index===0)return;
     var arr=this.orderedKeys.slice();

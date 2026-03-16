@@ -12,15 +12,6 @@ var labelsSynced=false;
 
 app().initializers.add("resofire-menu-control",function(){
 
-  // Add sticky class to the IndexPage element when sticky is enabled.
-  // The CSS in forum.less targets .IndexPage--stickyNav .IndexPage-nav.
-  _extend.extend(IndexPage().prototype,"view",function(vnode){
-    if(app().forum.attribute("menuControlSticky")){
-      vnode.attrs=vnode.attrs||{};
-      vnode.attrs.className=(vnode.attrs.className||"")+" IndexPage--stickyNav";
-    }
-  });
-
   _extend.extend(IndexPage().prototype,"oninit",function(){
     var rawOrder=app().forum.attribute("menuControlOrder");
     this._menuOrder=null;
@@ -43,27 +34,34 @@ app().initializers.add("resofire-menu-control",function(){
     var origToArray=items.toArray.bind(items);
     items.toArray=function(keepPrimitives){
 
-      // Save real display labels (admin only, once per page load)
+      // Save real labels AND icons (admin only, once per page load).
+      // icons: read vnode.attrs.icon from each nav item vnode.
       if(!labelsSynced&&app().session.user&&app().session.user.isAdmin()){
         labelsSynced=true;
         var labels={};
+        var icons={};
         Object.keys(items.toObject()).forEach(function(k){
           if(isTagEntry(k))return;
           try{
-            var txt=extractText()(items.get(k));
+            var vnode=items.get(k);
+            var txt=extractText()(vnode);
             if(txt&&txt.trim())labels[k]=txt.trim();
+            // Icon is in vnode.attrs.icon (e.g. "fas fa-star", "far fa-comments")
+            if(vnode&&vnode.attrs&&vnode.attrs.icon){
+              icons[k]=vnode.attrs.icon;
+            }
           }catch(e){}
         });
         app().request({
           method:"POST",
           url:app().forum.attribute("apiUrl")+"/settings",
-          body:{"resofire-menu-control.labels":JSON.stringify(labels)}
+          body:{
+            "resofire-menu-control.labels":JSON.stringify(labels),
+            "resofire-menu-control.icons":JSON.stringify(icons)
+          }
         }).catch(function(){});
       }
 
-      // Step 1: Apply saved order to nav items (always, flip or not).
-      // Sets nav item priorities to base, base-1, base-2... (e.g. 206, 205, 204)
-      // Non-ordered items and tag entries keep their original priorities.
       if(menuOrder&&menuOrder.length>0){
         var base=menuOrder.length+200;
         menuOrder.forEach(function(key,index){
@@ -71,43 +69,30 @@ app().initializers.add("resofire-menu-control",function(){
         });
       }
 
-      // Step 2: If flip, move nav items to bottom while keeping their relative order.
-      // Tag items (negative priorities like -14, -16) get negated to positive (+14, +16) → float to top.
-      // Nav items (positive priorities 206, 205...) get mapped to negative while
-      // PRESERVING their relative order: index 0 stays "first" in the nav group.
-      // Separator is pinned at 0 — always sits between the two groups.
       if(menuFlip){
         var allKeys=Object.keys(items.toObject());
-
-        // Separate nav keys (positive priority) from tag entries (negative or structural)
         var navKeys=[];
         allKeys.forEach(function(k){
           if(!isTagEntry(k)&&items.getPriority(k)>0){navKeys.push(k);}
         });
-
-        // Sort navKeys by current priority descending (first → last)
         navKeys.sort(function(a,b){return items.getPriority(b)-items.getPriority(a);});
-
-        // Assign negative priorities that preserve order:
-        // first nav item → -(201), second → -(202), ..., last → -(200+N)
-        // These are all negative so they sort below the tag items (which become positive).
-        navKeys.forEach(function(k,i){
-          items.setPriority(k,-(201+i));
-        });
-
-        // Negate tag entries (negative → positive, float to top)
+        navKeys.forEach(function(k,i){items.setPriority(k,-(201+i));});
         allKeys.forEach(function(k){
-          if(k==="separator"){
-            items.setPriority(k,0); // pin separator between the two groups
-          } else if(isTagEntry(k)){
-            items.setPriority(k,-items.getPriority(k));
-          }
+          if(k==="separator"){items.setPriority(k,0);}
+          else if(isTagEntry(k)){items.setPriority(k,-items.getPriority(k));}
         });
       }
 
       items.toArray=origToArray;
       return origToArray(keepPrimitives);
     };
+  });
+
+  _extend.extend(IndexPage().prototype,"view",function(vnode){
+    if(app().forum.attribute("menuControlSticky")){
+      vnode.attrs=vnode.attrs||{};
+      vnode.attrs.className=(vnode.attrs.className||"")+" IndexPage--stickyNav";
+    }
   });
 
 });

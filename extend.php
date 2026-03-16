@@ -24,6 +24,9 @@ return [
         })
         ->serializeToForum('menuControlSticky', 'resofire-menu-control.sticky', function ($value) {
             return (bool) $value;
+        })
+        ->serializeToForum('menuControlIcons', 'resofire-menu-control.icons', function ($value) {
+            return $value ? json_decode($value, true) : (object)[];
         }),
 
     (new Extend\ApiSerializer(ForumSerializer::class))
