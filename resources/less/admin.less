@@ -53,6 +53,15 @@
     -webkit-user-select: text;
   }
 
+  &-highlight {
+    color: var(--muted-more-color);
+    flex-shrink: 0;
+
+    &.is-highlighted {
+      color: var(--primary-color);
+    }
+  }
+
   &-arrows {
     display: flex;
     gap: 2px;

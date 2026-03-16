@@ -35,6 +35,7 @@ app().initializers.add("resofire-menu-control",function(){
     }
     this._menuFlip=!!app().forum.attribute("menuControlFlip");
     this._customIcons=app().forum.attribute("menuControlCustomIcons")||{};
+    this._highlighted=app().forum.attribute("menuControlHighlighted")||[];
   });
 
   _extend.extend(IndexPage().prototype,"navItems",function(items){
@@ -78,6 +79,21 @@ app().initializers.add("resofire-menu-control",function(){
             try{
               var vnode=items.get(key);
               if(vnode&&vnode.attrs){vnode.attrs.icon=customIcons[key];}
+            }catch(e){}
+          }
+        });
+      }
+
+      // Set itemClassName on highlighted items so listItems() adds the CSS class to the <li>
+      var highlighted=self._highlighted;
+      if(highlighted&&highlighted.length>0){
+        highlighted.forEach(function(key){
+          if(items.has(key)){
+            try{
+              var vnode=items.get(key);
+              if(vnode&&vnode.attrs){
+                vnode.attrs.itemClassName=(vnode.attrs.itemClassName||"")+" MenuControl-highlighted";
+              }
             }catch(e){}
           }
         });

@@ -44,6 +44,13 @@ var MenuControlPage=function(Base){
     this.customIcons=Stream()(customIconsObj);
     this._savedCustomIcons=JSON.stringify(customIconsObj);
 
+    // Highlighted items
+    var rawHighlighted=app().data.settings["resofire-menu-control.highlighted"];
+    var highlightedArr=[];
+    try{highlightedArr=rawHighlighted?JSON.parse(rawHighlighted):[]}catch(e){}
+    this.highlighted=Stream()(highlightedArr);
+    this._savedHighlighted=JSON.stringify(highlightedArr);
+
 
   };
 
@@ -75,10 +82,23 @@ var MenuControlPage=function(Base){
     m.redraw();
   };
 
+  p._isHighlighted=function(key){
+    return this.highlighted().indexOf(key)!==-1;
+  };
+  p._toggleHighlighted=function(key){
+    var arr=this.highlighted().slice();
+    var idx=arr.indexOf(key);
+    if(idx===-1)arr.push(key);
+    else arr.splice(idx,1);
+    this.highlighted(arr);
+    m.redraw();
+  };
+
   p.changed=function(){
     if(this.flipNav()!==this._savedFlip)return true;
     if(this.stickyNav()!==this._savedSticky)return true;
     if(JSON.stringify(this.customIcons())!==this._savedCustomIcons)return true;
+    if(JSON.stringify(this.highlighted())!==this._savedHighlighted)return true;
     var a=this.orderedKeys,b=this._savedOrder;
     if(a.length!==b.length)return true;
     for(var i=0;i<a.length;i++){if(a[i]!==b[i])return true;}
@@ -90,7 +110,8 @@ var MenuControlPage=function(Base){
       "resofire-menu-control.order":JSON.stringify(this.orderedKeys),
       "resofire-menu-control.flip":this.flipNav()?"1":"0",
       "resofire-menu-control.sticky":this.stickyNav()?"1":"0",
-      "resofire-menu-control.custom-icons":JSON.stringify(this.customIcons())
+      "resofire-menu-control.custom-icons":JSON.stringify(this.customIcons()),
+      "resofire-menu-control.highlighted":JSON.stringify(this.highlighted())
     };
   };
 
@@ -110,6 +131,7 @@ var MenuControlPage=function(Base){
         self._savedFlip=self.flipNav();
         self._savedSticky=self.stickyNav();
         self._savedCustomIcons=JSON.stringify(self.customIcons());
+        self._savedHighlighted=JSON.stringify(self.highlighted());
       })
       .catch(function(){})
       .then(function(){self.loading=false;m.redraw();});
@@ -174,6 +196,15 @@ var MenuControlPage=function(Base){
         title:app().translator.trans("resofire-menu-control.admin.nav_order.icon_input_title"),
         oninput:function(e){self._setCustomIcon(key,e.target.value);},
 
+      }),
+      Button().component({
+        className:"Button Button--icon Button--flat MenuControlPage-highlight"
+          +(self._isHighlighted(key)?" is-highlighted":""),
+        icon:self._isHighlighted(key)?"fas fa-star":"far fa-star",
+        title:self._isHighlighted(key)
+          ?app().translator.trans("resofire-menu-control.admin.nav_order.remove_highlight")
+          :app().translator.trans("resofire-menu-control.admin.nav_order.add_highlight"),
+        onclick:function(){self._toggleHighlighted(key);}
       }),
       m("span",{className:"MenuControlPage-arrows"},
         Button().component({
