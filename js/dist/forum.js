@@ -52,22 +52,47 @@ app().initializers.add("resofire-menu-control",function(){
         }).catch(function(){});
       }
 
-      // Apply saved order OR flip, not both at the same time.
-      // Flip inverts all priorities so tags appear above nav items.
-      // The separator gets pinned at 0 to always sit between the two groups.
-      if(menuFlip){
-        Object.keys(items.toObject()).forEach(function(k){
-          if(k==="separator"){
-            // Pin separator at 0 — always between the two groups regardless of flip
-            items.setPriority(k,0);
-          } else {
-            items.setPriority(k,-items.getPriority(k));
-          }
-        });
-      } else if(menuOrder){
+      // Step 1: Apply saved order to nav items (always, flip or not).
+      // Sets nav item priorities to base, base-1, base-2... (e.g. 206, 205, 204)
+      // Non-ordered items and tag entries keep their original priorities.
+      if(menuOrder&&menuOrder.length>0){
         var base=menuOrder.length+200;
         menuOrder.forEach(function(key,index){
           if(items.has(key)){items.setPriority(key,base-index);}
+        });
+      }
+
+      // Step 2: If flip, move nav items to bottom while keeping their relative order.
+      // Tag items (negative priorities like -14, -16) get negated to positive (+14, +16) → float to top.
+      // Nav items (positive priorities 206, 205...) get mapped to negative while
+      // PRESERVING their relative order: index 0 stays "first" in the nav group.
+      // Separator is pinned at 0 — always sits between the two groups.
+      if(menuFlip){
+        var allKeys=Object.keys(items.toObject());
+
+        // Separate nav keys (positive priority) from tag entries (negative or structural)
+        var navKeys=[];
+        allKeys.forEach(function(k){
+          if(!isTagEntry(k)&&items.getPriority(k)>0){navKeys.push(k);}
+        });
+
+        // Sort navKeys by current priority descending (first → last)
+        navKeys.sort(function(a,b){return items.getPriority(b)-items.getPriority(a);});
+
+        // Assign negative priorities that preserve order:
+        // first nav item → -(201), second → -(202), ..., last → -(200+N)
+        // These are all negative so they sort below the tag items (which become positive).
+        navKeys.forEach(function(k,i){
+          items.setPriority(k,-(201+i));
+        });
+
+        // Negate tag entries (negative → positive, float to top)
+        allKeys.forEach(function(k){
+          if(k==="separator"){
+            items.setPriority(k,0); // pin separator between the two groups
+          } else if(isTagEntry(k)){
+            items.setPriority(k,-items.getPriority(k));
+          }
         });
       }
 
