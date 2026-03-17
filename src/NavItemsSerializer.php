@@ -36,7 +36,7 @@ class NavItemsSerializer
     private function getNavKeysAndLabels(): array
     {
         $enabledJson = $this->settings->get('extensions_enabled', '[]');
-        $currentHash = md5($enabledJson) . '-v2';
+        $currentHash = md5($enabledJson) . '-v3';
 
         // Return cached keys if extension set hasn't changed.
         if ($this->settings->get('resofire-menu-control.discovered-for') === $currentHash) {
@@ -101,7 +101,9 @@ class NavItemsSerializer
     private function extractNavKeys(string $js): array
     {
         $keys    = [];
-        $pattern = '/["\']navItems["\'][\s,]*\(?function[^{]*\{(.{0,3000}?)(?:\}\)|\}\);\})/s';
+        // Only match extend() calls to avoid picking up navItems method definitions
+        // on other page classes (e.g. fof/polls PollsPage.navItems)
+        $pattern = '/extend\s*\)\s*\([^,]+,\s*["\']navItems["\'][^,]*,\s*(?:function|\()[^{]*\{(.{0,3000}?)(?:\}\)|\},)/s';
 
         preg_match_all($pattern, $js, $matches);
 
