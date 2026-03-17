@@ -51,10 +51,6 @@ var labelsSynced=false;
 
 app().initializers.add("resofire-menu-control",function(){
 
-  // Apply highlight color CSS properties at boot so they're available
-  // on both IndexPage and the blog's ForumNav.
-  applyHighlightColor();
-
   // Sticky sidebar and label/icon discovery remain tied to IndexPage lifecycle.
   _extend.extend(IndexPage().prototype,"oninit",function(){
     if(app().forum.attribute("menuControlSticky")){
@@ -74,6 +70,10 @@ app().initializers.add("resofire-menu-control",function(){
     var menuFlip=settings.menuFlip;
     var customIcons=settings.customIcons;
     var highlighted=settings.highlighted;
+
+    // Apply highlight color CSS properties — runs here so it works on both
+    // IndexPage and the blog's ForumNav (which bypasses IndexPage.oninit).
+    applyHighlightColor();
 
     var origToArray=items.toArray.bind(items);
     items.toArray=function(keepPrimitives){
