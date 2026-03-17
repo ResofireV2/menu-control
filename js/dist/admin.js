@@ -45,6 +45,13 @@ var MenuControlPage=function(Base){
     this.customIcons=Stream()(customIconsObj);
     this._savedCustomIcons=JSON.stringify(customIconsObj);
 
+    // Removed keys — items dismissed from the admin list
+    var rawRemoved=app().data.settings["resofire-menu-control.removed-keys"];
+    var removedArr=[];
+    try{removedArr=rawRemoved?JSON.parse(rawRemoved):[]}catch(e){}
+    this.removedKeys=Stream()(removedArr);
+    this._savedRemovedKeys=JSON.stringify(removedArr);
+
     // Highlight color
     var rawHlColor=app().data.settings["resofire-menu-control.highlight-color"]||"";
     this.highlightColor=Stream()(rawHlColor);
@@ -67,8 +74,10 @@ var MenuControlPage=function(Base){
     var savedOrder=[];
     try{savedOrder=rawOrder?JSON.parse(rawOrder):[]}catch(e){}
     savedOrder=savedOrder.filter(function(k){return!isTagEntry(k);});
-    var merged=savedOrder.filter(function(k){return phpKeys.indexOf(k)!==-1;});
-    phpKeys.forEach(function(k){if(merged.indexOf(k)===-1)merged.push(k);});
+    var removed=[];
+    try{removed=JSON.parse(app().data.settings["resofire-menu-control.removed-keys"]||"[]")}catch(e){}
+    var merged=savedOrder.filter(function(k){return phpKeys.indexOf(k)!==-1&&removed.indexOf(k)===-1;});
+    phpKeys.forEach(function(k){if(merged.indexOf(k)===-1&&removed.indexOf(k)===-1)merged.push(k);});
 
     // If no saved order exists yet, apply a sensible default:
     // move 'tags' to the end since it is always last in Flarum's nav.
@@ -112,11 +121,23 @@ var MenuControlPage=function(Base){
     m.redraw();
   };
 
+  p._removeItem=function(key){
+    // Remove from orderedKeys
+    var arr=this.orderedKeys.filter(function(k){return k!==key;});
+    this.orderedKeys=arr;
+    // Add to removedKeys so it stays gone after reload
+    var removed=this.removedKeys().slice();
+    if(removed.indexOf(key)===-1)removed.push(key);
+    this.removedKeys(removed);
+    m.redraw();
+  };
+
   p.changed=function(){
     if(this.flipNav()!==this._savedFlip)return true;
     if(this.stickyNav()!==this._savedSticky)return true;
     if(JSON.stringify(this.customIcons())!==this._savedCustomIcons)return true;
     if(JSON.stringify(this.highlighted())!==this._savedHighlighted)return true;
+    if(JSON.stringify(this.removedKeys())!==this._savedRemovedKeys)return true;
     if(this.highlightColor()!==this._savedHighlightColor)return true;
     var a=this.orderedKeys,b=this._savedOrder;
     if(a.length!==b.length)return true;
@@ -131,6 +152,7 @@ var MenuControlPage=function(Base){
       "resofire-menu-control.sticky":this.stickyNav()?"1":"0",
       "resofire-menu-control.custom-icons":JSON.stringify(this.customIcons()),
       "resofire-menu-control.highlighted":JSON.stringify(this.highlighted()),
+      "resofire-menu-control.removed-keys":JSON.stringify(this.removedKeys()),
       "resofire-menu-control.highlight-color":this.highlightColor()
     };
   };
@@ -152,6 +174,7 @@ var MenuControlPage=function(Base){
         self._savedSticky=self.stickyNav();
         self._savedCustomIcons=JSON.stringify(self.customIcons());
         self._savedHighlighted=JSON.stringify(self.highlighted());
+        self._savedRemovedKeys=JSON.stringify(self.removedKeys());
         self._savedHighlightColor=self.highlightColor();
       })
       .catch(function(){})
@@ -245,6 +268,12 @@ var MenuControlPage=function(Base){
           ?app().translator.trans("resofire-menu-control.admin.nav_order.remove_highlight")
           :app().translator.trans("resofire-menu-control.admin.nav_order.add_highlight"),
         onclick:function(){self._toggleHighlighted(key);}
+      }),
+      Button().component({
+        className:"Button Button--icon Button--flat MenuControlPage-remove",
+        icon:"fas fa-times",
+        title:app().translator.trans("resofire-menu-control.admin.nav_order.remove_item"),
+        onclick:function(){self._removeItem(key);}
       }),
       m("span",{className:"MenuControlPage-arrows"},
         Button().component({

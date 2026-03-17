@@ -49,6 +49,17 @@
     flex-shrink: 0;
   }
 
+  &-remove {
+    color: var(--muted-more-color);
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+
+    .MenuControlPage-item:hover & {
+      opacity: 1;
+    }
+  }
+
   &-highlight {
     color: var(--muted-more-color);
     flex-shrink: 0;
