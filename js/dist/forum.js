@@ -8,10 +8,54 @@ const _extractText=flarum.core.compat["utils/extractText"];var extractText=t.n(_
 var TAG_ENTRY_RE=/^tag\d+$/;
 function isTagEntry(key){return key==="separator"||key==="moreTags"||TAG_ENTRY_RE.test(key);}
 
+// Parse and cache settings once at boot — available regardless of which
+// component calls navItems() (IndexPage or blog's ForumNav).
+function getMenuSettings(){
+  var rawOrder=app().forum.attribute("menuControlOrder");
+  var menuOrder=null;
+  if(rawOrder){
+    try{
+      var parsed=JSON.parse(rawOrder);
+      if(Array.isArray(parsed)&&parsed.length>0){
+        menuOrder=parsed.filter(function(k){return!isTagEntry(k);});
+      }
+    }catch(e){}
+  }
+  return{
+    menuOrder:menuOrder,
+    menuFlip:!!app().forum.attribute("menuControlFlip"),
+    customIcons:app().forum.attribute("menuControlCustomIcons")||{},
+    highlighted:app().forum.attribute("menuControlHighlighted")||[]
+  };
+}
+
+// Set CSS custom properties for highlight color — called once at boot.
+function applyHighlightColor(){
+  var hlColor=app().forum.attribute("menuControlHighlightColor");
+  if(hlColor&&hlColor.trim()){
+    var hex=hlColor.trim();
+    document.documentElement.style.setProperty("--mc-highlight-color",hex);
+    var r=0,g=0,b=0;
+    var h=hex.replace("#","");
+    if(h.length===3){h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];}
+    if(h.length===6){
+      r=parseInt(h.substring(0,2),16);
+      g=parseInt(h.substring(2,4),16);
+      b=parseInt(h.substring(4,6),16);
+    }
+    document.documentElement.style.setProperty("--mc-highlight-bg","rgba("+r+","+g+","+b+",0.35)");
+  }
+}
+
 var labelsSynced=false;
 
 app().initializers.add("resofire-menu-control",function(){
 
+  // Apply highlight color CSS properties at boot so they're available
+  // on both IndexPage and the blog's ForumNav.
+  applyHighlightColor();
+
+  // Sticky sidebar and label/icon discovery remain tied to IndexPage lifecycle.
   _extend.extend(IndexPage().prototype,"oninit",function(){
     if(app().forum.attribute("menuControlSticky")){
       document.body.classList.add("resofire-sticky-nav");
@@ -22,45 +66,19 @@ app().initializers.add("resofire-menu-control",function(){
     document.body.classList.remove("resofire-sticky-nav");
   });
 
-  _extend.extend(IndexPage().prototype,"oninit",function(){
-    var rawOrder=app().forum.attribute("menuControlOrder");
-    this._menuOrder=null;
-    if(rawOrder){
-      try{
-        var parsed=JSON.parse(rawOrder);
-        if(Array.isArray(parsed)&&parsed.length>0){
-          this._menuOrder=parsed.filter(function(k){return!isTagEntry(k);});
-        }
-      }catch(e){}
-    }
-    this._menuFlip=!!app().forum.attribute("menuControlFlip");
-    this._customIcons=app().forum.attribute("menuControlCustomIcons")||{};
-    this._highlighted=app().forum.attribute("menuControlHighlighted")||[];
-    var hlColor=app().forum.attribute("menuControlHighlightColor");
-    if(hlColor&&hlColor.trim()){
-      var hex=hlColor.trim();
-      document.documentElement.style.setProperty("--mc-highlight-color",hex);
-      // Also set an rgba version for background opacity (0.35 alpha)
-      var r=0,g=0,b=0;
-      var h=hex.replace("#","");
-      if(h.length===3){h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];}
-      if(h.length===6){
-        r=parseInt(h.substring(0,2),16);
-        g=parseInt(h.substring(2,4),16);
-        b=parseInt(h.substring(4,6),16);
-      }
-      document.documentElement.style.setProperty("--mc-highlight-bg","rgba("+r+","+g+","+b+",0.35)");
-    }
-  });
-
+  // navItems extend: reads settings directly from app().forum.attribute()
+  // so it works regardless of whether `this` is an IndexPage or ForumNav instance.
   _extend.extend(IndexPage().prototype,"navItems",function(items){
-    var self=this;
-    var menuOrder=self._menuOrder;
-    var menuFlip=self._menuFlip;
+    var settings=getMenuSettings();
+    var menuOrder=settings.menuOrder;
+    var menuFlip=settings.menuFlip;
+    var customIcons=settings.customIcons;
+    var highlighted=settings.highlighted;
 
     var origToArray=items.toArray.bind(items);
     items.toArray=function(keepPrimitives){
 
+      // Label/icon discovery — admin only, once per page load, IndexPage only.
       if(!labelsSynced&&app().session.user&&app().session.user.isAdmin()){
         labelsSynced=true;
         var labels={};
@@ -76,23 +94,16 @@ app().initializers.add("resofire-menu-control",function(){
             }
           }catch(e){}
         });
-        // Build the actual rendered order from toArray() result
-        // (keys in priority-sorted order, excluding tag entries)
         var renderedOrder=Object.keys(items.toObject())
           .filter(function(k){return!isTagEntry(k);});
-
         var body={
           "resofire-menu-control.labels":JSON.stringify(labels),
           "resofire-menu-control.icons":JSON.stringify(icons)
         };
-
-        // Only save the order if none has been saved yet — preserves any
-        // existing admin-configured order on reinstall/upgrade
         var existingOrder=app().forum.attribute("menuControlOrder");
         if(!existingOrder&&renderedOrder.length>0){
           body["resofire-menu-control.order"]=JSON.stringify(renderedOrder);
         }
-
         app().request({
           method:"POST",
           url:app().forum.attribute("apiUrl")+"/settings",
@@ -100,8 +111,7 @@ app().initializers.add("resofire-menu-control",function(){
         }).catch(function(){});
       }
 
-      // Apply custom icon overrides — replace vnode.attrs.icon before render
-      var customIcons=self._customIcons;
+      // Apply custom icon overrides
       if(customIcons){
         Object.keys(customIcons).forEach(function(key){
           if(items.has(key)){
@@ -113,8 +123,7 @@ app().initializers.add("resofire-menu-control",function(){
         });
       }
 
-      // Set itemClassName on highlighted items so listItems() adds the CSS class to the <li>
-      var highlighted=self._highlighted;
+      // Set itemClassName on highlighted items
       if(highlighted&&highlighted.length>0){
         highlighted.forEach(function(key){
           if(items.has(key)){
@@ -128,6 +137,7 @@ app().initializers.add("resofire-menu-control",function(){
         });
       }
 
+      // Apply saved order
       if(menuOrder&&menuOrder.length>0){
         var base=menuOrder.length+200;
         menuOrder.forEach(function(key,index){
@@ -135,6 +145,7 @@ app().initializers.add("resofire-menu-control",function(){
         });
       }
 
+      // Apply flip
       if(menuFlip){
         var allKeys=Object.keys(items.toObject());
         var navKeys=[];
