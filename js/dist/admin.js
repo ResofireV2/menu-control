@@ -364,7 +364,15 @@ var MenuControlPage=function(Base){
             self.customIcons(ci);
           }
         }),
-
+        Button().component({
+          className:"Button Button--icon Button--flat MenuControlPage-highlight"
+            +(self._isHighlighted(key)?" is-highlighted":""),
+          icon:self._isHighlighted(key)?"fas fa-star":"far fa-star",
+          title:self._isHighlighted(key)
+            ?app().translator.trans("resofire-menu-control.admin.nav_order.remove_highlight")
+            :app().translator.trans("resofire-menu-control.admin.nav_order.add_highlight"),
+          onclick:function(){self._toggleHighlighted(key);}
+        }),
         Button().component({
           className:"Button Button--icon Button--flat MenuControlPage-remove",
           icon:"fas fa-times",
