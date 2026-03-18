@@ -388,14 +388,14 @@ var MenuControlPage=function(Base){
             title:app().translator.trans("resofire-menu-control.admin.nav_order.move_down"),
             disabled:index===keys.length-1,
             onclick:function(){self._moveDown(index);}
+          }),
+          Button().component({
+            className:"Button Button--icon Button--flat MenuControlPage-remove MenuControlPage-remove--visible",
+            icon:"fas fa-times",
+            title:app().translator.trans("resofire-menu-control.admin.nav_order.remove_item"),
+            onclick:function(){self._removeCustomLink(idx);}
           })
-        ),
-        Button().component({
-          className:"Button Button--icon Button--flat MenuControlPage-remove",
-          icon:"fas fa-times",
-          title:app().translator.trans("resofire-menu-control.admin.nav_order.remove_item"),
-          onclick:function(){self._removeCustomLink(idx);}
-        })
+        )
       );
     }
 

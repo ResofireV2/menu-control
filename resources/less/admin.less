@@ -52,8 +52,8 @@
   &-item--customLink {
     flex-wrap: wrap;
     gap: 0.4rem;
-    background: var(--control-bg);
-    border: 1px dashed var(--control-bg-active);
+    background: mix(#d83e3e, @body-bg-light, 8%);
+    border: 1px dashed mix(#d83e3e, @body-bg-light, 25%);
   }
 
   &-customLink-label {
@@ -99,6 +99,10 @@
 
     &:hover {
       opacity: 1 !important;
+    }
+
+    &--visible {
+      opacity: 0.7;
     }
   }
 
