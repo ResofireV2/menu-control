@@ -45,6 +45,13 @@ var MenuControlPage=function(Base){
     this.customIcons=Stream()(customIconsObj);
     this._savedCustomIcons=JSON.stringify(customIconsObj);
 
+    // Custom links — admin-defined links added to the nav
+    var rawCustomLinks=app().data.settings["resofire-menu-control.custom-links"];
+    var customLinksArr=[];
+    try{customLinksArr=rawCustomLinks?JSON.parse(rawCustomLinks):[]}catch(e){}
+    this.customLinks=Stream()(customLinksArr);
+    this._savedCustomLinks=JSON.stringify(customLinksArr);
+
     // Removed keys — items dismissed from the admin list
     var rawRemoved=app().data.settings["resofire-menu-control.removed-keys"];
     var removedArr=[];
@@ -76,6 +83,16 @@ var MenuControlPage=function(Base){
     savedOrder=savedOrder.filter(function(k){return!isTagEntry(k);});
     var removed=[];
     try{removed=JSON.parse(app().data.settings["resofire-menu-control.removed-keys"]||"[]")}catch(e){}
+
+    // Add custom link keys to phpKeys BEFORE building merged so saved order is preserved
+    var customLinksRaw=app().data.settings["resofire-menu-control.custom-links"];
+    var customLinkKeys=[];
+    try{
+      var cl=customLinksRaw?JSON.parse(customLinksRaw):[];
+      cl.forEach(function(l,i){customLinkKeys.push("custom-link-"+i);});
+    }catch(e){}
+    customLinkKeys.forEach(function(k){if(phpKeys.indexOf(k)===-1)phpKeys.push(k);});
+
     var merged=savedOrder.filter(function(k){return phpKeys.indexOf(k)!==-1&&removed.indexOf(k)===-1;});
     phpKeys.forEach(function(k){if(merged.indexOf(k)===-1&&removed.indexOf(k)===-1)merged.push(k);});
 
@@ -94,11 +111,21 @@ var MenuControlPage=function(Base){
     return merged;
   };
 
-  p._label=function(key){return this._labels[key]||key;};
+  p._label=function(key){
+    if(this._isCustomLink(key))return this._customLinkLabel(key);
+    return this._labels[key]||key;
+  };
   p._icon=function(key){return this._icons[key]||null;};
 
   // Returns the custom icon for key if set, otherwise the discovered icon
   p._effectiveIcon=function(key){
+    if(this._isCustomLink(key)){
+      var idx=this._customLinkIndex(key);
+      var links=this.customLinks();
+      var ci=this.customIcons();
+      if(ci[key]&&ci[key].trim())return ci[key].trim();
+      return links[idx]&&links[idx].icon?links[idx].icon:"fas fa-link";
+    }
     var ci=this.customIcons();
     return (ci[key]&&ci[key].trim()) ? ci[key].trim() : this._icon(key);
   };
@@ -132,12 +159,62 @@ var MenuControlPage=function(Base){
     m.redraw();
   };
 
+  p._addCustomLink=function(){
+    var links=this.customLinks().slice();
+    links.push({label:"",icon:"fas fa-link",url:"",external:false});
+    this.customLinks(links);
+    // Add to orderedKeys
+    var key="custom-link-"+(links.length-1);
+    this.orderedKeys=this.orderedKeys.concat([key]);
+    m.redraw();
+  };
+
+  p._updateCustomLink=function(index,field,value){
+    var links=this.customLinks().slice();
+    if(!links[index])return;
+    links[index]=Object.assign({},links[index]);
+    links[index][field]=value;
+    this.customLinks(links);
+  };
+
+  p._removeCustomLink=function(index){
+    var links=this.customLinks().slice();
+    links.splice(index,1);
+    this.customLinks(links);
+    // Remove from orderedKeys and update remaining custom-link-N keys
+    var key="custom-link-"+index;
+    var arr=this.orderedKeys.filter(function(k){return k!==key;});
+    // Re-index remaining custom-link keys
+    for(var i=index;i<links.length;i++){
+      var oldKey="custom-link-"+(i+1);
+      var newKey="custom-link-"+i;
+      arr=arr.map(function(k){return k===oldKey?newKey:k;});
+    }
+    this.orderedKeys=arr;
+    m.redraw();
+  };
+
+  p._isCustomLink=function(key){
+    return key.indexOf("custom-link-")=== 0;
+  };
+
+  p._customLinkIndex=function(key){
+    return parseInt(key.replace("custom-link-",""),10);
+  };
+
+  p._customLinkLabel=function(key){
+    var idx=this._customLinkIndex(key);
+    var links=this.customLinks();
+    return links[idx]&&links[idx].label?links[idx].label:"Custom Link";
+  };
+
   p.changed=function(){
     if(this.flipNav()!==this._savedFlip)return true;
     if(this.stickyNav()!==this._savedSticky)return true;
     if(JSON.stringify(this.customIcons())!==this._savedCustomIcons)return true;
     if(JSON.stringify(this.highlighted())!==this._savedHighlighted)return true;
     if(JSON.stringify(this.removedKeys())!==this._savedRemovedKeys)return true;
+    if(JSON.stringify(this.customLinks())!==this._savedCustomLinks)return true;
     if(this.highlightColor()!==this._savedHighlightColor)return true;
     var a=this.orderedKeys,b=this._savedOrder;
     if(a.length!==b.length)return true;
@@ -153,6 +230,7 @@ var MenuControlPage=function(Base){
       "resofire-menu-control.custom-icons":JSON.stringify(this.customIcons()),
       "resofire-menu-control.highlighted":JSON.stringify(this.highlighted()),
       "resofire-menu-control.removed-keys":JSON.stringify(this.removedKeys()),
+      "resofire-menu-control.custom-links":JSON.stringify(this.customLinks()),
       "resofire-menu-control.highlight-color":this.highlightColor()
     };
   };
@@ -175,6 +253,7 @@ var MenuControlPage=function(Base){
         self._savedCustomIcons=JSON.stringify(self.customIcons());
         self._savedHighlighted=JSON.stringify(self.highlighted());
         self._savedRemovedKeys=JSON.stringify(self.removedKeys());
+        self._savedCustomLinks=JSON.stringify(self.customLinks());
         self._savedHighlightColor=self.highlightColor();
       })
       .catch(function(){})
@@ -219,6 +298,16 @@ var MenuControlPage=function(Base){
               })
             )
           ),
+          m("div",{className:"Form-group"},
+            Button().component({
+              className:"Button",
+              icon:"fas fa-plus",
+              onclick:function(){self._addCustomLink();}
+            },app().translator.trans("resofire-menu-control.admin.nav_order.add_custom_link"))
+          ),
+          m("p",{className:"helpText MenuControlPage-pollsNote"},
+            app().translator.trans("resofire-menu-control.admin.nav_order.polls_note")
+          ),
           keys.length===0
             ?m("p",{className:"MenuControlPage-empty helpText"},
                 app().translator.trans("resofire-menu-control.admin.nav_order.no_items"))
@@ -237,7 +326,73 @@ var MenuControlPage=function(Base){
 
   p._renderItem=function(key,index,keys){
     var self=this;
-    var icon=this._icon(key);
+
+    // Custom link items get an expanded inline editor
+    if(self._isCustomLink(key)){
+      var idx=self._customLinkIndex(key);
+      var links=self.customLinks();
+      var link=links[idx]||{label:"",icon:"fas fa-link",url:"",external:false};
+      return m("li",{key:key,className:"MenuControlPage-item MenuControlPage-item--customLink"},
+        m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},
+          m("i",{className:self._effectiveIcon(key)+" fa-fw"})),
+        m("input",{
+          className:"FormControl MenuControlPage-customLink-label",
+          type:"text",
+          placeholder:app().translator.trans("resofire-menu-control.admin.nav_order.custom_link_label"),
+          value:link.label||"",
+          oninput:function(e){self._updateCustomLink(idx,"label",e.target.value);}
+        }),
+        m("input",{
+          className:"FormControl MenuControlPage-customLink-url",
+          type:"text",
+          placeholder:"https://",
+          value:link.url||"",
+          oninput:function(e){self._updateCustomLink(idx,"url",e.target.value);}
+        }),
+        m("input",{
+          className:"FormControl MenuControlPage-iconInput",
+          type:"text",
+          placeholder:"fas fa-link",
+          value:self.customIcons()[key]||link.icon||"",
+          oninput:function(e){
+            var ci=Object.assign({},self.customIcons());
+            var v=e.target.value;
+            if(v){ci[key]=v;}else{delete ci[key];}
+            self.customIcons(ci);
+          }
+        }),
+        m("label",{className:"MenuControlPage-customLink-external",title:app().translator.trans("resofire-menu-control.admin.nav_order.custom_link_external")},
+          m("input",{type:"checkbox",checked:!!link.external,
+            onchange:function(e){self._updateCustomLink(idx,"external",e.target.checked);}
+          }),
+          m("i",{className:"fas fa-external-link-alt"})
+        ),
+        m("span",{className:"MenuControlPage-arrows"},
+          Button().component({
+            className:"Button Button--icon Button--flat",
+            icon:"fas fa-arrow-up",
+            title:app().translator.trans("resofire-menu-control.admin.nav_order.move_up"),
+            disabled:index===0,
+            onclick:function(){self._moveUp(index);}
+          }),
+          Button().component({
+            className:"Button Button--icon Button--flat",
+            icon:"fas fa-arrow-down",
+            title:app().translator.trans("resofire-menu-control.admin.nav_order.move_down"),
+            disabled:index===keys.length-1,
+            onclick:function(){self._moveDown(index);}
+          })
+        ),
+        Button().component({
+          className:"Button Button--icon Button--flat MenuControlPage-remove",
+          icon:"fas fa-times",
+          title:app().translator.trans("resofire-menu-control.admin.nav_order.remove_item"),
+          onclick:function(){self._removeCustomLink(idx);}
+        })
+      );
+    }
+
+    var icon=self._icon(key);
 
     return m("li",{key:key,className:"MenuControlPage-item"},
       m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},

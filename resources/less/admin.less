@@ -49,6 +49,44 @@
     flex-shrink: 0;
   }
 
+  &-item--customLink {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    background: var(--control-bg);
+    border: 1px dashed var(--control-bg-active);
+  }
+
+  &-customLink-label {
+    width: 120px;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    height: 28px;
+    padding: 2px 6px;
+  }
+
+  &-customLink-url {
+    flex: 1;
+    min-width: 140px;
+    font-size: 0.8rem;
+    height: 28px;
+    padding: 2px 6px;
+  }
+
+  &-customLink-external {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--muted-color);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  &-pollsNote {
+    margin-bottom: 1rem;
+    font-style: italic;
+  }
+
   &-remove {
     color: var(--muted-more-color);
     flex-shrink: 0;

@@ -21,11 +21,17 @@ function getMenuSettings(){
       }
     }catch(e){}
   }
+  // Parse custom links
+  var customLinksRaw=app().forum.attribute("menuControlCustomLinks");
+  var customLinks=[];
+  try{customLinks=Array.isArray(customLinksRaw)?customLinksRaw:[];}catch(e){}
+
   return{
     menuOrder:menuOrder,
     menuFlip:!!app().forum.attribute("menuControlFlip"),
     customIcons:app().forum.attribute("menuControlCustomIcons")||{},
-    highlighted:app().forum.attribute("menuControlHighlighted")||[]
+    highlighted:app().forum.attribute("menuControlHighlighted")||[],
+    customLinks:customLinks
   };
 }
 
@@ -70,6 +76,7 @@ app().initializers.add("resofire-menu-control",function(){
     var menuFlip=settings.menuFlip;
     var customIcons=settings.customIcons;
     var highlighted=settings.highlighted;
+    var customLinks=settings.customLinks;
 
     // Apply highlight color CSS properties — runs here so it works on both
     // IndexPage and the blog's ForumNav (which bypasses IndexPage.oninit).
@@ -109,6 +116,31 @@ app().initializers.add("resofire-menu-control",function(){
           url:app().forum.attribute("apiUrl")+"/settings",
           body:body
         }).catch(function(){});
+      }
+
+      // Inject custom links into the ItemList
+      if(customLinks&&customLinks.length>0){
+        var _LinkButton=flarum.core.compat["common/components/LinkButton"];
+        customLinks.forEach(function(link,idx){
+          if(!link.url)return;
+          var key="custom-link-"+idx;
+          if(!items.has(key)){
+            var url=link.url;
+            if(!link.external){
+              var baseUrl=app().forum.attribute("baseUrl")||"";
+              url=url.replace(baseUrl,"");
+              if(url==="")url="/";
+            }
+            items.add(key,
+              m(_LinkButton,{
+                href:url,
+                icon:link.icon||"fas fa-link",
+                external:!!link.external
+              },link.label||"Link"),
+              0
+            );
+          }
+        });
       }
 
       // Apply custom icon overrides
