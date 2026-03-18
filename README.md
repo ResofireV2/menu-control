@@ -1,34 +1,34 @@
 # resofire/menu-control
 
-A Flarum extension that gives admins full control over the sidebar navigation on the forum index page — reorder items, flip the layout, customize icons, highlight items for users, and more.
+A Flarum extension that gives admins full control over the sidebar navigation on the forum index page — reorder items, add custom links, customize icons, highlight items for users, and more.
 
 ---
 
 ## Features
 
 ### Navigation Order
-Reorder all sidebar nav items (All Discussions, Tags, Following, User Directory, third-party extension links, etc.) using the up/down arrow buttons in the admin panel. The order updates immediately after saving.
+Use the arrow buttons to reorder all sidebar nav items (All Discussions, Tags, Following, User Directory, third-party extension links, etc.). The order updates immediately after saving.
+
+### Custom Links
+Add your own links to the sidebar nav. Each custom link has a label, URL, and icon. External links (starting with `http://` or `https://`) open in a new tab automatically. Internal links (paths or your forum's URL) open in the same tab via Mithril's router.
 
 ### Flip Navigation
-Moves tag links to the top of the sidebar and pushes nav items (All Discussions, Following, etc.) below them. Applies on all screen sizes.
+Moves tag links to the top of the sidebar and nav items (All Discussions, Following, etc.) to the bottom. Applies on all screen sizes.
 
 ### Sticky Sidebar
-Keeps the sidebar fixed at the top of the viewport as the user scrolls down the discussion list. Desktop only.
+Keeps the sidebar fixed at the top of the viewport as the user scrolls. The Start a Discussion button stays visible at all times. Desktop only.
 
 ### Custom Icons
-Each nav item has a text input in the admin panel where you can type any Font Awesome icon class (e.g. `fas fa-bolt`). Leave the input empty to use the extension's default icon. Icons update on the forum immediately after saving.
+Each nav item has a text input for overriding its Font Awesome icon class (e.g. `fas fa-bolt`). Leave it empty to use the extension's default icon.
 
 ### Highlight Items
-Mark any nav item with the star button in the admin panel to highlight it for users. Highlighted items receive:
-- A colored background at reduced opacity
-- A solid border in the highlight color
-- A pulsing outer glow animation
-- Bold primary-colored text
-
-Highlighting is desktop only (the mobile nav renders differently and does not support this styling).
+Mark any nav item with the star button to apply a highlight treatment: colored background at reduced opacity, solid border, and a pulsing glow animation. Desktop only.
 
 ### Highlight Color
-A color picker in the admin panel lets you choose the background and border color for highlighted items. Supports any hex color value. The background is rendered at partial opacity for a subtle effect, while the border and glow use the full color.
+A color picker controls the background, border, and glow color for highlighted items.
+
+### Remove Items from List
+Any item can be permanently removed from the admin list using the × button. Useful for items discovered by the PHP scanner that don't actually appear in your forum's nav (e.g. fof/polls items when global polls is disabled).
 
 ---
 
@@ -47,11 +47,10 @@ php flarum extension:enable resofire-menu-control
 
 After enabling the extension:
 
-1. **Visit the forum index page** while logged in as an admin. This triggers automatic discovery of all active nav item keys and saves the current display order to the database.
-2. Go to **Admin → Extensions → Menu Control**. All discovered nav items will be listed in their current forum order.
-3. Adjust settings as desired and click **Save Order**.
+1. **Visit the forum index page** while logged in as an admin. This automatically detects all active nav items and saves the current display order.
+2. Go to **Admin → Extensions → Menu Control** to configure.
 
-If you later install or uninstall extensions that add nav items, visit the forum index page again as an admin to refresh the item list, then re-save your order.
+If you install or uninstall extensions that add nav items, visit the forum index page again as admin to refresh the list.
 
 ---
 
@@ -59,13 +58,25 @@ If you later install or uninstall extensions that add nav items, visit the forum
 
 | Control | Description |
 |---|---|
-| Flip navigation | Toggle to show tags above nav items |
-| Sticky sidebar | Toggle to fix sidebar position while scrolling (desktop only) |
-| Highlight color | Color picker for highlighted item background, border, and glow |
-| ↑ / ↓ buttons | Reorder nav items |
-| Icon input | Override the Font Awesome icon for an item (e.g. `fas fa-fire`) |
+| Flip navigation | Toggle — tags above nav items |
+| Sticky sidebar | Toggle — fixed sidebar on desktop |
+| Highlight color | Color picker for highlighted item styling |
+| Add Custom Link | Add a custom nav link with label, URL, and icon |
+| Icon input | Override the Font Awesome icon (e.g. `fas fa-fire`) |
 | ★ star button | Toggle highlight on/off for an item |
+| × button | Remove item from the admin list permanently |
+| ↑ / ↓ buttons | Reorder nav items |
 | Save Order | Persist all changes |
+
+---
+
+## Compatibility with Other Extensions
+
+### fof/blog
+Ordering, custom icons, flip, and highlight all apply to the blog page's Forum Nav sidebar automatically.
+
+### fof/polls
+If fof/polls is installed, items like `fof-polls-showcase` may appear in the admin list even when global polls is disabled. Use the × button to remove them permanently.
 
 ---
 
@@ -78,14 +89,16 @@ If you later install or uninstall extensions that add nav items, visit the forum
 | `resofire-menu-control.labels` | JSON object of key → display label (auto-discovered) |
 | `resofire-menu-control.icons` | JSON object of key → FA icon class (auto-discovered) |
 | `resofire-menu-control.custom-icons` | JSON object of key → admin-overridden FA icon class |
+| `resofire-menu-control.custom-links` | JSON array of custom link objects |
 | `resofire-menu-control.flip` | `"1"` or `"0"` |
 | `resofire-menu-control.sticky` | `"1"` or `"0"` |
 | `resofire-menu-control.highlighted` | JSON array of highlighted nav keys |
-| `resofire-menu-control.highlight-color` | Hex color string for highlight styling |
+| `resofire-menu-control.highlight-color` | Hex color string |
+| `resofire-menu-control.removed-keys` | JSON array of keys removed from the admin list |
 
 ---
 
-## Compatibility
+## Requirements
 
 Flarum **1.8+** (`flarum/core: ^1.8`).
 
