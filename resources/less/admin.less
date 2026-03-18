@@ -52,8 +52,8 @@
   &-item--customLink {
     flex-wrap: wrap;
     gap: 0.4rem;
-    background: mix(#d83e3e, @body-bg-light, 8%);
-    border: 1px dashed mix(#d83e3e, @body-bg-light, 25%);
+    background: var(--control-bg);
+    border: 1px dashed var(--control-bg-active);
   }
 
   &-customLink-label {
@@ -102,7 +102,14 @@
     }
 
     &--visible {
-      opacity: 0.7;
+      opacity: 0.8;
+      background: mix(#d83e3e, #ffffff, 15%) !important;
+      border-radius: 50%;
+
+      &:hover {
+        background: mix(#d83e3e, #ffffff, 25%) !important;
+        opacity: 1 !important;
+      }
     }
   }
 
