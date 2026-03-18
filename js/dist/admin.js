@@ -375,7 +375,7 @@ var MenuControlPage=function(Base){
           m("i",{className:"fas fa-window-restore"})
         ),
         Button().component({
-          className:"Button Button--icon Button--flat MenuControlPage-remove MenuControlPage-remove--visible",
+          className:"Button Button--icon Button--flat MenuControlPage-remove",
           icon:"fas fa-times",
           title:app().translator.trans("resofire-menu-control.admin.nav_order.remove_item"),
           onclick:function(){self._removeCustomLink(idx);}
