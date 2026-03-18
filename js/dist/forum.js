@@ -126,14 +126,15 @@ app().initializers.add("resofire-menu-control",function(){
           var key="custom-link-"+idx;
           if(!items.has(key)){
             var url=link.url;
-            // Absolute URLs are external — open in new tab, bypass Mithril router.
-            // Relative/internal URLs use Mithril router and open in same tab.
-            var isAbsolute=/^https?:\/\//i.test(url);
-            if(!isAbsolute){
-              var baseUrl=app().forum.attribute("baseUrl")||"";
-              url=url.replace(baseUrl,"");
-              if(url==="")url="/";
+            var baseUrl=app().forum.attribute("baseUrl")||"";
+            // If URL starts with the forum base URL, treat as internal regardless
+            // of scheme — admin may have pasted a full internal URL.
+            var isInternal=url.indexOf(baseUrl)===0;
+            if(isInternal){
+              url=url.slice(baseUrl.length)||"/";
             }
+            // Otherwise, any absolute URL with a scheme is external.
+            var isAbsolute=!isInternal&&/^https?:\/\//i.test(url);
             var linkAttrs={
               href:url,
               icon:link.icon||"fas fa-link",
