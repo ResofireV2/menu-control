@@ -301,8 +301,9 @@ var MenuControlPage=function(Base){
           m("div",{className:"Form-group"},
             Button().component({
               className:"Button",
+              type:"button",
               icon:"fas fa-plus",
-              onclick:function(){self._addCustomLink();}
+              onclick:function(e){e.preventDefault();e.stopPropagation();self._addCustomLink();}
             },app().translator.trans("resofire-menu-control.admin.nav_order.add_custom_link"))
           ),
           m("p",{className:"helpText MenuControlPage-pollsNote"},
