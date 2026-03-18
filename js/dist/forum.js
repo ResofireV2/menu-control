@@ -126,17 +126,25 @@ app().initializers.add("resofire-menu-control",function(){
           var key="custom-link-"+idx;
           if(!items.has(key)){
             var url=link.url;
-            if(!link.external){
+            // Auto-detect external: any absolute URL with a scheme is external
+            var isExternal=link.external||/^https?:\/\//i.test(url);
+            if(!isExternal){
+              // Strip base URL for internal links so Mithril router handles them
               var baseUrl=app().forum.attribute("baseUrl")||"";
               url=url.replace(baseUrl,"");
               if(url==="")url="/";
             }
+            var linkAttrs={
+              href:url,
+              icon:link.icon||"fas fa-link",
+              external:isExternal
+            };
+            if(isExternal){
+              linkAttrs.target="_blank";
+              linkAttrs.rel="noopener noreferrer";
+            }
             items.add(key,
-              m(_LinkButton,{
-                href:url,
-                icon:link.icon||"fas fa-link",
-                external:!!link.external
-              },link.label||"Link"),
+              m(_LinkButton,linkAttrs,link.label||"Link"),
               0
             );
           }
