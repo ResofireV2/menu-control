@@ -161,7 +161,7 @@ var MenuControlPage=function(Base){
 
   p._addCustomLink=function(){
     var links=this.customLinks().slice();
-    links.push({label:"",icon:"fas fa-link",url:"",external:false,openNewTab:false});
+    links.push({label:"",icon:"fas fa-link",url:"",openNewTab:false});
     this.customLinks(links);
     // Add to orderedKeys
     var key="custom-link-"+(links.length-1);
@@ -332,7 +332,7 @@ var MenuControlPage=function(Base){
     if(self._isCustomLink(key)){
       var idx=self._customLinkIndex(key);
       var links=self.customLinks();
-      var link=links[idx]||{label:"",icon:"fas fa-link",url:"",external:false,openNewTab:false};
+      var link=links[idx]||{label:"",icon:"fas fa-link",url:"",openNewTab:false};
       return m("li",{key:key,className:"MenuControlPage-item MenuControlPage-item--customLink"},
         m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},
           m("i",{className:self._effectiveIcon(key)+" fa-fw"})),
@@ -362,12 +362,6 @@ var MenuControlPage=function(Base){
             self.customIcons(ci);
           }
         }),
-        m("label",{className:"MenuControlPage-customLink-external",title:app().translator.trans("resofire-menu-control.admin.nav_order.custom_link_external")},
-          m("input",{type:"checkbox",checked:!!link.external,
-            onchange:function(e){self._updateCustomLink(idx,"external",e.target.checked);}
-          }),
-          m("i",{className:"fas fa-external-link-alt"})
-        ),
         m("label",{className:"MenuControlPage-customLink-external",title:app().translator.trans("resofire-menu-control.admin.nav_order.custom_link_new_tab")},
           m("input",{type:"checkbox",checked:!!link.openNewTab,
             onchange:function(e){self._updateCustomLink(idx,"openNewTab",e.target.checked);}
