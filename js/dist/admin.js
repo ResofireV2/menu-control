@@ -336,20 +336,22 @@ var MenuControlPage=function(Base){
       return m("li",{key:key,className:"MenuControlPage-item MenuControlPage-item--customLink"},
         m("span",{className:"MenuControlPage-icon","aria-hidden":"true"},
           m("i",{className:self._effectiveIcon(key)+" fa-fw"})),
-        m("input",{
-          className:"FormControl MenuControlPage-customLink-label",
-          type:"text",
-          placeholder:app().translator.trans("resofire-menu-control.admin.nav_order.custom_link_label"),
-          value:link.label||"",
-          oninput:function(e){self._updateCustomLink(idx,"label",e.target.value);}
-        }),
-        m("input",{
-          className:"FormControl MenuControlPage-customLink-url",
-          type:"text",
-          placeholder:"https://",
-          value:link.url||"",
-          oninput:function(e){self._updateCustomLink(idx,"url",e.target.value);}
-        }),
+        m("span",{className:"MenuControlPage-customLink-fields"},
+          m("input",{
+            className:"FormControl MenuControlPage-customLink-label",
+            type:"text",
+            placeholder:app().translator.trans("resofire-menu-control.admin.nav_order.custom_link_label"),
+            value:link.label||"",
+            oninput:function(e){self._updateCustomLink(idx,"label",e.target.value);}
+          }),
+          m("input",{
+            className:"FormControl MenuControlPage-customLink-url",
+            type:"text",
+            placeholder:"https://",
+            value:link.url||"",
+            oninput:function(e){self._updateCustomLink(idx,"url",e.target.value);}
+          })
+        ),
         m("input",{
           className:"FormControl MenuControlPage-iconInput",
           type:"text",
