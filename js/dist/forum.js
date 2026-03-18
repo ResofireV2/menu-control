@@ -126,10 +126,12 @@ app().initializers.add("resofire-menu-control",function(){
           var key="custom-link-"+idx;
           if(!items.has(key)){
             var url=link.url;
-            // Auto-detect external: any absolute URL with a scheme is external
-            var isExternal=link.external||/^https?:\/\//i.test(url);
-            if(!isExternal){
-              // Strip base URL for internal links so Mithril router handles them
+            // Any absolute URL must be treated as external to avoid Mithril
+            // router's pushState() throwing a SecurityError cross-origin.
+            var isAbsolute=/^https?:\/\//i.test(url);
+            var openInNewTab=!!link.external;
+            if(!isAbsolute){
+              // Strip base URL so Mithril router handles internal links
               var baseUrl=app().forum.attribute("baseUrl")||"";
               url=url.replace(baseUrl,"");
               if(url==="")url="/";
@@ -137,9 +139,9 @@ app().initializers.add("resofire-menu-control",function(){
             var linkAttrs={
               href:url,
               icon:link.icon||"fas fa-link",
-              external:isExternal
+              external:isAbsolute
             };
-            if(isExternal){
+            if(openInNewTab){
               linkAttrs.target="_blank";
               linkAttrs.rel="noopener noreferrer";
             }
