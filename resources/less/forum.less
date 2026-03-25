@@ -2,13 +2,13 @@
 
 @keyframes mc-highlight-pulse {
   0% {
-    box-shadow: 0 0 6px 2px var(--mc-highlight-color, @control-bg);
+    box-shadow: 0 0 6px 2px var(--mc-highlight-color, var(--control-bg));
   }
   50% {
-    box-shadow: 0 0 14px 5px var(--mc-highlight-color, @control-bg);
+    box-shadow: 0 0 14px 5px var(--mc-highlight-color, var(--control-bg));
   }
   100% {
-    box-shadow: 0 0 6px 2px var(--mc-highlight-color, @control-bg);
+    box-shadow: 0 0 6px 2px var(--mc-highlight-color, var(--control-bg));
   }
 }
 
@@ -25,8 +25,8 @@
     > a {
       color: var(--primary-color) !important;
       font-weight: bold;
-      background: var(--mc-highlight-bg, @control-bg) !important;
-      border: 2px solid var(--mc-highlight-color, @control-bg) !important;
+      background: var(--mc-highlight-bg, var(--control-bg)) !important;
+      border: 2px solid var(--mc-highlight-color, var(--control-bg)) !important;
       border-radius: 4px;
       padding-left: 35px !important;
       margin-left: -5px;
@@ -39,7 +39,7 @@
     }
 
     > a:hover {
-      background: var(--mc-highlight-bg, @control-bg) !important;
+      background: var(--mc-highlight-bg, var(--control-bg)) !important;
     }
   }
 
