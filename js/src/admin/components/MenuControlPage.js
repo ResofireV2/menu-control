@@ -281,7 +281,7 @@ export default class MenuControlPage extends ExtensionPage {
               <p className="helpText">
                 {app.translator.trans('resofire-menu-control.admin.nav_order.highlight_color_help')}
               </p>
-              <div style="max-width:200px">
+              <div className="MenuControlPage-colorInput" style="max-width:200px">
                 <ColorPreviewInput
                   value={this.highlightColor() || ''}
                   placeholder="#536F90"
