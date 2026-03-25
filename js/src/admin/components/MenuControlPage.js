@@ -37,7 +37,9 @@ export default class MenuControlPage extends ExtensionPage {
     return merged;
   }
 
-  content() {
+  // In Flarum 2.x, AdminPage.content() is abstract and receives a vnode.
+  // ExtensionPage calls this.content(vnode) from sections().
+  content(vnode) {
     const keys = this.orderedKeys;
     return (
       <div className="MenuControlPage">

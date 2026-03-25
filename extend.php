@@ -1,6 +1,7 @@
 <?php
 
-use Flarum\Api\Serializer\ForumSerializer;
+use Flarum\Api\Resource\ForumResource;
+use Flarum\Api\Schema\Attribute;
 use Flarum\Extend;
 use Resofire\MenuControl\NavItemsSerializer;
 
@@ -41,6 +42,21 @@ return [
             return $value ? json_decode($value, true) : [];
         }),
 
-    (new Extend\ApiSerializer(ForumSerializer::class))
-        ->attributes(NavItemsSerializer::class),
+    // Inject PHP-computed nav keys and labels into the forum API payload.
+    // In Flarum 2.x, ForumSerializer is replaced by ForumResource. The
+    // ->fields() closure is called with zero arguments by ApiResource::extend(),
+    // so NavItemsSerializer is resolved from the container at call-time via
+    // app(), which is the standard pattern for zero-arity extender closures.
+    (new Extend\ApiResource(ForumResource::class))
+        ->fields(function () {
+            $serializer = app(NavItemsSerializer::class);
+
+            return [
+                Attribute::make('menuControlNavKeys')
+                    ->get(fn () => $serializer->getNavKeys()),
+
+                Attribute::make('menuControlNavLabels')
+                    ->get(fn () => $serializer->getNavLabels()),
+            ];
+        }),
 ];

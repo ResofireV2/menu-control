@@ -2,7 +2,6 @@
 
 namespace Resofire\MenuControl;
 
-use Flarum\Api\Serializer\ForumSerializer;
 use Flarum\Extension\ExtensionManager;
 use Flarum\Settings\SettingsRepositoryInterface;
 
@@ -12,6 +11,10 @@ use Flarum\Settings\SettingsRepositoryInterface;
  * no forum visit needed). Labels come from JS extractText() discovery
  * (real rendered text — "Pick'em", "Awards" etc.) saved to the DB by
  * the forum JS after the first admin page load.
+ *
+ * In Flarum 2.x there is no ForumSerializer. This class is a plain service
+ * whose two public methods are called directly from extend.php via the
+ * ApiResource extender's ->fields() callback.
  */
 class NavItemsSerializer
 {
@@ -24,13 +27,22 @@ class NavItemsSerializer
         private ExtensionManager $extensions
     ) {}
 
-    public function __invoke(ForumSerializer $serializer): array
+    /**
+     * Return the ordered list of discovered nav item keys.
+     */
+    public function getNavKeys(): array
     {
-        [$keys, $labels] = $this->getNavKeysAndLabels();
-        return [
-            'menuControlNavKeys'   => $keys,
-            'menuControlNavLabels' => $labels,
-        ];
+        [$keys] = $this->getNavKeysAndLabels();
+        return $keys;
+    }
+
+    /**
+     * Return the key → display-label map for all discovered nav items.
+     */
+    public function getNavLabels(): array
+    {
+        [, $labels] = $this->getNavKeysAndLabels();
+        return $labels;
     }
 
     private function getNavKeysAndLabels(): array
@@ -42,7 +54,6 @@ class NavItemsSerializer
         if ($this->settings->get('resofire-menu-control.discovered-for') === $currentHash) {
             $keys = json_decode($this->settings->get('resofire-menu-control.known-keys', '[]'), true) ?? [];
             if (!empty($keys)) {
-                // Always use the latest JS-saved labels — they have real display text.
                 $labels = $this->buildLabels($keys);
                 return [$keys, $labels];
             }
@@ -75,7 +86,6 @@ class NavItemsSerializer
      */
     private function buildLabels(array $keys): array
     {
-        // JS-saved labels: real display text written by the forum JS after first admin visit.
         $jsLabels = json_decode(
             $this->settings->get('resofire-menu-control.labels', '{}'), true
         ) ?? [];
@@ -83,10 +93,8 @@ class NavItemsSerializer
         $labels = self::CORE_LABELS;
         foreach ($keys as $key) {
             if (isset($jsLabels[$key]) && is_string($jsLabels[$key]) && $jsLabels[$key] !== '') {
-                // Real label from JS (e.g. "Pick'em", "Leaderboard", "Awards")
                 $labels[$key] = $jsLabels[$key];
             } else {
-                // Fallback: raw key until the admin visits the forum index page
                 $labels[$key] = $key;
             }
         }
@@ -95,14 +103,15 @@ class NavItemsSerializer
     }
 
     /**
-     * Extract IndexPage navItems keys from compiled forum.js.
-     * Skips UserPage.navItems blocks (which contain 'user.' route references).
+     * Extract IndexSidebar navItems keys from compiled forum.js.
+     *
+     * In Flarum 2.x, nav items are added to IndexSidebar.prototype.navItems
+     * rather than IndexPage.prototype.navItems. The regex targets extend()
+     * calls on navItems to avoid picking up definitions on other page classes.
      */
     private function extractNavKeys(string $js): array
     {
         $keys    = [];
-        // Only match extend() calls to avoid picking up navItems method definitions
-        // on other page classes (e.g. fof/polls PollsPage.navItems)
         $pattern = '/extend\s*\)\s*\([^,]+,\s*["\']navItems["\'][^,]*,\s*(?:function|\()[^{]*\{(.{0,3000}?)(?:\}\)|\},)/s';
 
         preg_match_all($pattern, $js, $matches);
