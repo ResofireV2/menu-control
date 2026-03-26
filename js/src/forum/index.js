@@ -51,7 +51,9 @@ function applyHighlightColor() {
   }
 }
 
-let labelsSynced = false;
+// Track the last key set we discovered so we re-run if new items appear
+// (e.g. a new extension is installed between forum visits in the same session).
+let lastDiscoveredKeySet = null;
 
 app.initializers.add('resofire-menu-control', () => {
 
@@ -89,9 +91,17 @@ app.initializers.add('resofire-menu-control', () => {
     const origToArray = items.toArray.bind(items);
     items.toArray = function (keepPrimitives) {
 
-      // Label/icon discovery — admin only, once per page load
-      if (!labelsSynced && app.session.user && app.session.user.isAdmin()) {
-        labelsSynced = true;
+      // Label/icon discovery — admin only.
+      // Re-runs if the set of nav item keys has changed since the last discovery
+      // (catches newly installed extensions without requiring a full browser reload).
+      if (app.session.user && app.session.user.isAdmin()) {
+        const currentKeys = Object.keys(items.toObject())
+          .filter(k => !isTagEntry(k))
+          .sort()
+          .join(',');
+
+        if (currentKeys !== lastDiscoveredKeySet) {
+          lastDiscoveredKeySet = currentKeys;
         const labels = {};
         const icons  = {};
         Object.keys(items.toObject()).forEach(k => {
@@ -117,7 +127,8 @@ app.initializers.add('resofire-menu-control', () => {
           url: app.forum.attribute('apiUrl') + '/settings',
           body,
         }).catch(() => {});
-      }
+        } // end key-set changed
+      } // end isAdmin
 
       // Inject custom links
       if (customLinks && customLinks.length > 0) {

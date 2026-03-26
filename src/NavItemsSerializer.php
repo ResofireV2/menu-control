@@ -6,11 +6,19 @@ use Flarum\Extension\ExtensionManager;
 use Flarum\Settings\SettingsRepositoryInterface;
 
 /**
- * Discovers IndexPage nav item keys by scanning each enabled extension's
- * compiled js/dist/forum.js. Keys come from PHP scanning (server-side,
- * no forum visit needed). Labels come from JS extractText() discovery
- * (real rendered text — "Pick'em", "Awards" etc.) saved to the DB by
- * the forum JS after the first admin page load.
+ * Discovers nav item keys via two complementary mechanisms:
+ *
+ * 1. PHP file scan — reads each enabled extension's compiled forum.js and
+ *    extracts keys from navItems extend() calls. Fast, works on first page
+ *    load before any admin has visited the forum, but misses extensions that
+ *    add nav items without using navItems extend (e.g. via custom routing).
+ *
+ * 2. JS runtime discovery — the forum JS reads extractText() on every
+ *    rendered nav item and POSTs the real labels + keys to the settings API.
+ *    These are stored in resofire-menu-control.labels and are the authoritative
+ *    source for what actually appears in the sidebar. Keys found here are
+ *    merged into the PHP-scanned list so extensions like Gamepedia that skip
+ *    the navItems extend pattern are still included.
  *
  * In Flarum 2.x there is no ForumSerializer. This class is a plain service
  * whose two public methods are called directly from extend.php via the
@@ -18,8 +26,8 @@ use Flarum\Settings\SettingsRepositoryInterface;
  */
 class NavItemsSerializer
 {
-    private const CORE_KEYS   = ['allDiscussions'];
-    private const CORE_LABELS = ['allDiscussions' => 'All Discussions'];
+    private const CORE_KEYS     = ['allDiscussions'];
+    private const CORE_LABELS   = ['allDiscussions' => 'All Discussions'];
     private const EXCLUDED_KEYS = ['separator', 'moreTags'];
 
     public function __construct(
@@ -27,18 +35,12 @@ class NavItemsSerializer
         private ExtensionManager $extensions
     ) {}
 
-    /**
-     * Return the ordered list of discovered nav item keys.
-     */
     public function getNavKeys(): array
     {
         [$keys] = $this->getNavKeysAndLabels();
         return $keys;
     }
 
-    /**
-     * Return the key → display-label map for all discovered nav items.
-     */
     public function getNavLabels(): array
     {
         [, $labels] = $this->getNavKeysAndLabels();
@@ -48,18 +50,30 @@ class NavItemsSerializer
     private function getNavKeysAndLabels(): array
     {
         $enabledJson = $this->settings->get('extensions_enabled', '[]');
-        $currentHash = md5($enabledJson) . '-v3';
 
-        // Return cached keys if extension set hasn't changed.
+        // JS-discovered labels are the authoritative runtime source.
+        // We always merge them in so extensions that skip navItems extend
+        // (e.g. Gamepedia) appear as soon as an admin has visited the forum.
+        $jsLabels = json_decode(
+            $this->settings->get('resofire-menu-control.labels', '{}'), true
+        ) ?? [];
+        $jsDiscoveredKeys = array_keys($jsLabels);
+
+        // Cache keyed on enabled-extensions hash + JS-discovered key count,
+        // so the cache busts when either extensions change OR when new items
+        // are discovered at runtime.
+        $currentHash = md5($enabledJson) . '-v4-' . count($jsDiscoveredKeys);
+
         if ($this->settings->get('resofire-menu-control.discovered-for') === $currentHash) {
-            $keys = json_decode($this->settings->get('resofire-menu-control.known-keys', '[]'), true) ?? [];
+            $keys = json_decode(
+                $this->settings->get('resofire-menu-control.known-keys', '[]'), true
+            ) ?? [];
             if (!empty($keys)) {
-                $labels = $this->buildLabels($keys);
-                return [$keys, $labels];
+                return [$keys, $this->buildLabels($keys, $jsLabels)];
             }
         }
 
-        // Scan extension JS files for nav keys.
+        // PHP file scan — catches extensions that use standard navItems extend.
         $keys = self::CORE_KEYS;
 
         foreach ($this->extensions->getEnabledExtensions() as $extension) {
@@ -74,21 +88,27 @@ class NavItemsSerializer
             }
         }
 
+        // Merge JS-discovered keys — catches extensions that skip navItems extend.
+        // Preserve the PHP-scanned order first, then append any extras.
+        foreach ($jsDiscoveredKeys as $key) {
+            if (!in_array($key, $keys, true) && $this->isValidNavKey($key)) {
+                $keys[] = $key;
+            }
+        }
+
         $this->settings->set('resofire-menu-control.known-keys', json_encode($keys));
         $this->settings->set('resofire-menu-control.discovered-for', $currentHash);
 
-        return [$keys, $this->buildLabels($keys)];
+        return [$keys, $this->buildLabels($keys, $jsLabels)];
     }
 
-    /**
-     * Build the labels array for the given keys.
-     * Priority: JS-saved labels (real extractText output) > raw key as fallback.
-     */
-    private function buildLabels(array $keys): array
+    private function buildLabels(array $keys, array $jsLabels = []): array
     {
-        $jsLabels = json_decode(
-            $this->settings->get('resofire-menu-control.labels', '{}'), true
-        ) ?? [];
+        if (empty($jsLabels)) {
+            $jsLabels = json_decode(
+                $this->settings->get('resofire-menu-control.labels', '{}'), true
+            ) ?? [];
+        }
 
         $labels = self::CORE_LABELS;
         foreach ($keys as $key) {
@@ -102,13 +122,6 @@ class NavItemsSerializer
         return $labels;
     }
 
-    /**
-     * Extract IndexSidebar navItems keys from compiled forum.js.
-     *
-     * In Flarum 2.x, nav items are added to IndexSidebar.prototype.navItems
-     * rather than IndexPage.prototype.navItems. The regex targets extend()
-     * calls on navItems to avoid picking up definitions on other page classes.
-     */
     private function extractNavKeys(string $js): array
     {
         $keys    = [];
@@ -117,7 +130,6 @@ class NavItemsSerializer
         preg_match_all($pattern, $js, $matches);
 
         foreach ($matches[1] as $block) {
-            // Skip UserPage nav items (likes, mentions, uploads etc.)
             if (preg_match('/["\']user\./', $block)) {
                 continue;
             }
